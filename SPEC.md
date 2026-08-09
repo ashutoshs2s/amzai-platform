@@ -391,3 +391,49 @@ Total weeks is the number of whole weeks between `start_date` and `end_date`. Cu
 **Data freshness.** Dashboard figures are partly hand-entered. Every figure stores when it was last updated and whether it was automatic or manual. The interface surfaces staleness. See DESIGN.md.
 
 **The contact database is never exported to a client.** Programme-specific registration and attendee data is shareable with the client it belongs to. Nothing else is.
+
+## 9. Known deviations and planned work
+
+Recorded so nobody rediscovers them cold. Each entry says what it is, why it is that way, and what would change it.
+
+### 9.1 Accepted risk: the restricted views run with owner rights
+
+**What the linter says.** Supabase's Security Advisor flags `organisations_restricted` and `programs_restricted` as `security_definer_view`, at critical severity. The Table Editor additionally shows them as UNRESTRICTED while every table shows RLS enabled.
+
+**What is actually true.** The UNRESTRICTED label carries no information: a view is not a table, has no rows of its own, and cannot have a policy attached. Every view in every Postgres database is labelled this way.
+
+The `security_definer_view` finding is real but generic. Both views run with their owner's rights, which is deliberate and is the only reason they work: `data_ops` has no policy permitting it to read `organisations` or `programs`, so a caller-rights view would inherit that exclusion and return nothing. The views exist precisely to reach past a policy, in a controlled way, and expose a fixed column list that omits `currency`, `approver_name`, `approver_email` and `dashboard_token`.
+
+The risk the linter is warning about is that such a view becomes a way round row level security for someone who should not have the data. That was tested rather than assumed, against an instance configured the way Supabase configures one, including the default privileges that silently grant new views to `anon`:
+
+- `anon` is denied on both views outright, not merely filtered to nothing.
+- A specialist reads zero rows from both.
+- A specialist cannot create the leaky function the strongest form of the attack needs; `authenticated` has no `CREATE` on `public`.
+- An error-oracle predicate supplied by a specialist leaks nothing. The gating filter does not depend on any row, so the planner hoists it into a One-Time Filter that gates the scan before a row is read.
+
+Both views are marked `security_barrier`, which forbids the planner from evaluating a caller-supplied predicate below the view's own filter. Without it the safety above holds only by accident of the filter's shape: change it to something row-dependent and the protection would disappear with no test failing.
+
+All of this is covered by cases in `supabase/tests/test_row_level_security.sql`, so a regression fails a test rather than sitting quietly.
+
+**The finding will remain on the advisor board.** `security_barrier` does not clear it, because the views still run with owner rights. It is accepted, not fixed.
+
+**What would clear it.** Two options, in increasing order of value:
+
+1. Replace both views with `SECURITY DEFINER` set-returning functions. The linter does not flag functions, and a definer function is never inlined, so predicate pushdown cannot happen at all rather than merely being forbidden. Callers change from `select * from programs_restricted` to `select * from programs_restricted()`.
+2. Section 9.2. The preferred answer.
+
+### 9.2 Planned: move commercial columns out of `programs`
+
+**Not now.** Recorded as the intended long-term fix for 9.1.
+
+`currency`, `approver_name`, `approver_email` and `dashboard_token` move out of `programs` into a `program_commercials` table, keyed one-to-one on `program_id`.
+
+**Why this is the right shape.** The reason the restricted views exist at all is that `programs` mixes two sensitivities in one table: facts every internal role may see, and commercial detail `data_ops` may not. Row level security can restrict rows but not columns, so the column boundary has to be enforced somewhere else, and today that somewhere is a view reaching around a policy.
+
+Split the table and the boundary becomes a table boundary, which row level security expresses natively:
+
+- `programs` gains an ordinary policy granting `data_ops` read access alongside everyone else.
+- `program_commercials` gets a policy that excludes `data_ops`.
+- Both restricted views are deleted, and with them the advisor finding, the `security_barrier` reasoning, and an entire class of question about planner behaviour.
+
+**What it costs.** A migration moving four columns and backfilling, a policy on the new table, deleting two views, updating section 5 and the `dashboard_token` note in section 3, and removing the view cases from the row level security test. Do it before there is real commercial data, not after.
