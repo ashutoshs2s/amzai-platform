@@ -16,11 +16,7 @@ import {
   subVerticalLabel,
   verticalLabel,
 } from "@/lib/verticals";
-import {
-  type OnboardingField,
-  SAMPLE_PROGRAMMES,
-  detailFor,
-} from "../sample-data";
+import type { OnboardingField, ProgrammeDetail } from "@/lib/data/programmes";
 
 const TABS = [
   "Onboarding",
@@ -46,10 +42,6 @@ const ROLE_LABEL: Record<string, string> = {
   data_ops: "Data ops",
 };
 
-function addDays(base: Date, days: number): string {
-  return new Date(base.getTime() + days * 86_400_000).toISOString().slice(0, 10);
-}
-
 /**
  * A client-owned field has no assignee by design (SPEC.md section 4.3), so it
  * is not unassigned work. Only Amzai-owned fields with nobody on them count.
@@ -64,15 +56,14 @@ function isOpen(field: OnboardingField): boolean {
 }
 
 export function ProgrammeDetailContent({
-  programmeId,
   nowIso,
+  detail,
 }: {
-  programmeId: string;
   nowIso: string;
+  detail: ProgrammeDetail;
 }) {
   const now = new Date(nowIso);
-  const programme = SAMPLE_PROGRAMMES.find((entry) => entry.id === programmeId)!;
-  const detail = detailFor(programme);
+  const programme = detail;
 
   const [tab, setTab] = useState<Tab>("Onboarding");
   const [fields, setFields] = useState<OnboardingField[] | null>(detail.onboarding);
@@ -172,7 +163,7 @@ export function ProgrammeDetailContent({
           {" · "}
           {subVerticalLabel(programme.subVertical) ?? NO_SUB_VERTICAL}
           {" · "}
-          {programme.type}
+          {programme.typeLabel}
         </span>
         <StatusPill status={programme.status} />
       </div>
@@ -186,7 +177,7 @@ export function ProgrammeDetailContent({
         count={blockingOpen.length}
         oldestLabel={blockingOpen[0]?.question ?? ""}
         oldestDueDate={
-          blockingOpen[0] ? addDays(now, blockingOpen[0].dueOffset) : undefined
+          blockingOpen[0]?.dueDate ?? undefined
         }
         onShow={() => {
           setTab("Onboarding");
@@ -333,7 +324,6 @@ export function ProgrammeDetailContent({
                               <FieldRow
                                 key={field.id}
                                 field={field}
-                                now={now}
                                 team={teamNames}
                                 first={index === 0}
                                 highlighted={field.id === highlightId}
@@ -366,32 +356,23 @@ export function ProgrammeDetailContent({
         <aside className="lg:sticky lg:top-6 lg:w-[30%]">
           <div className="flex flex-col gap-4 border border-line bg-surface p-4">
             <Detail label="Countdown">
-              {programme.time.kind === "event" ? (
+              {programme.time === null ? (
+                <span className="text-slate">No dates set</span>
+              ) : programme.time.kind === "event" ? (
                 <Countdown
                   kind="event"
-                  milestoneDate={addDays(now, programme.time.milestoneOffset)}
+                  milestoneDate={programme.time.milestoneDate}
                   now={now}
                 />
               ) : (
                 <Countdown
                   kind="retainer"
-                  startDate={addDays(now, programme.time.startOffset)}
-                  endDate={addDays(now, programme.time.endOffset)}
-                  gateDate={
-                    programme.time.gateOffset === null
-                      ? null
-                      : addDays(now, programme.time.gateOffset)
-                  }
+                  startDate={programme.time.startDate}
+                  endDate={programme.time.endDate}
+                  gateDate={programme.time.gateDate}
                   now={now}
                 />
               )}
-            </Detail>
-
-            <Detail label="Next milestone">
-              <span className="text-body text-ink">{detail.nextMilestone.label}</span>{" "}
-              <span className="font-time text-body text-slate">
-                {formatDayMonth(addDays(now, detail.nextMilestone.dayOffset))}
-              </span>
             </Detail>
 
             <Detail label="Blocking">
@@ -408,7 +389,9 @@ export function ProgrammeDetailContent({
             </Detail>
 
             <Detail label="Client approver">
-              <span className="text-body text-ink">{detail.approverName}</span>
+              <span className="text-body text-ink">
+                {detail.approverName ?? "Not set"}
+              </span>
               {detail.approverEmail && (
                 <div className="text-caption text-slate">{detail.approverEmail}</div>
               )}
@@ -439,7 +422,7 @@ export function ProgrammeDetailContent({
                     <li key={index} className="text-body text-slate">
                       {entry.text}
                       <span className="ml-1 font-time text-caption">
-                        {formatDayMonth(addDays(now, entry.dayOffset))}
+                        {formatDayMonth(entry.at)}
                       </span>
                     </li>
                   ),
@@ -462,8 +445,7 @@ export function ProgrammeDetailContent({
       </div>
 
       <p className="mt-6 text-caption text-slate">
-        Sample data, not a database. Edits are held in the page and are lost on
-        reload.
+        Edits are held in the page and are not saved yet.
       </p>
     </div>
   );
@@ -480,14 +462,12 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
 
 function FieldRow({
   field,
-  now,
   team,
   first,
   highlighted,
   onChange,
 }: {
   field: OnboardingField;
-  now: Date;
   team: string[];
   first: boolean;
   highlighted: boolean;
@@ -518,9 +498,11 @@ function FieldRow({
             </span>
           )}
           <StatusPill status={field.status} />
-          <span className="font-time text-caption text-slate">
-            {formatDayMonth(addDays(now, field.dueOffset))}
-          </span>
+          {field.dueDate && (
+            <span className="font-time text-caption text-slate">
+              {formatDayMonth(field.dueDate)}
+            </span>
+          )}
         </span>
       </div>
 
@@ -551,7 +533,7 @@ function FieldRow({
           {field.answeredBy.party === "client" ? " (client)" : ""}
           {" · "}
           <span className="font-time">
-            {formatDayMonth(addDays(now, field.answeredBy.dayOffset))}
+            {field.answeredBy.at ? formatDayMonth(field.answeredBy.at) : "—"}
           </span>
         </p>
       )}
@@ -594,7 +576,7 @@ function GenerateGate({
   templateName,
   teamSize,
 }: {
-  templateName: string;
+  templateName: string | null;
   teamSize: number;
 }) {
   const blocked = teamSize === 0;
@@ -602,7 +584,13 @@ function GenerateGate({
     <div className="border border-line bg-surface p-6">
       <p className="text-body text-ink">Onboarding has not been generated yet.</p>
       <p className="mt-1 text-body text-slate">
-        Selected template: <span className="text-ink">{templateName}</span>
+        {templateName ? (
+          <>
+            Selected template: <span className="text-ink">{templateName}</span>
+          </>
+        ) : (
+          "No template selected yet. It is chosen from the organisation's vertical and the programme type."
+        )}
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button variant="primary" disabled={blocked}>

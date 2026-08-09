@@ -5,12 +5,9 @@ import type { ReactNode } from "react";
 
 import { LeftRail } from "@/components/shell/LeftRail";
 import { TopBar } from "@/components/shell/TopBar";
-import {
-  CURRENT_USER,
-  SAMPLE_PROGRAMMES,
-  awaitingFor,
-} from "@/app/programs/sample-data";
+import type { AwaitingSummary } from "@/lib/data/programmes";
 import { currentModule } from "@/lib/modules";
+import type { SearchEntry } from "@/components/shell/TopBar";
 
 /**
  * App shell. DESIGN.md section 4.
@@ -18,17 +15,25 @@ import { currentModule } from "@/lib/modules";
  * Rail and top bar are fixed; the content area is offset by both, sits on the
  * canvas background with 24px padding, and is capped and left-aligned.
  *
- * The programme context and the awaiting-me count are derived from the sample
- * data here because there is no session and no query yet. Both become real
- * reads when module 1 has data; nothing about the layout changes when they do.
+ * The awaiting-me count and the search index are read in the layout and passed
+ * in, through the same authenticated client the screens use, so the shell can
+ * never surface a programme the screen beneath it would not show.
  */
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  awaiting,
+  searchIndex,
+}: {
+  children: ReactNode;
+  awaiting: AwaitingSummary;
+  searchIndex: SearchEntry[];
+}) {
   const pathname = usePathname();
   const activeModule = currentModule(pathname);
 
   const match = pathname.match(/^\/programs\/([^/]+)$/);
   const programme = match
-    ? SAMPLE_PROGRAMMES.find((entry) => entry.id === match[1])
+    ? searchIndex.find((entry) => entry.id === match[1])
     : undefined;
 
   return (
@@ -38,7 +43,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         programmeContext={
           programme ? { id: programme.id, name: programme.name } : undefined
         }
-        awaiting={awaitingFor(CURRENT_USER)}
+        awaiting={awaiting}
+        searchIndex={searchIndex}
       />
       <div className="pl-[var(--rail-width)] pt-[var(--topbar)]">
         <main className="max-w-content px-6 py-6">{children}</main>

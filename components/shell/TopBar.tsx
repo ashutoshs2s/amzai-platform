@@ -4,11 +4,37 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import {
-  type AwaitingSummary,
-  type Programme,
-  searchProgrammes,
-} from "@/app/programs/sample-data";
+import type { AwaitingSummary } from "@/lib/data/programmes";
+import { subVerticalLabel, verticalLabel, type VerticalId } from "@/lib/verticals";
+
+/** The minimum a programme needs to be findable from the top bar. */
+export type SearchEntry = {
+  id: string;
+  name: string;
+  owner: string;
+  typeLabel: string;
+  vertical: VerticalId;
+  subVertical: string | null;
+};
+
+/**
+ * Matches the things an operator half-remembers: the name, who owns it, what
+ * kind of work it is, and the market it sits in. Searching "cybersecurity" and
+ * getting nothing because the word only lives in a column the search ignores
+ * is worse than no search.
+ */
+function matches(entry: SearchEntry, term: string): boolean {
+  return [
+    entry.name,
+    entry.owner,
+    entry.typeLabel,
+    verticalLabel(entry.vertical),
+    subVerticalLabel(entry.subVertical) ?? "",
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(term);
+}
 
 /**
  * Fixed top bar. DESIGN.md section 4.
@@ -31,15 +57,21 @@ function awaitingTone(summary: AwaitingSummary): string {
 export function TopBar({
   programmeContext,
   awaiting,
+  searchIndex,
 }: {
   programmeContext?: { id: string; name: string };
   awaiting: AwaitingSummary;
+  searchIndex: SearchEntry[];
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [term, setTerm] = useState("");
   const [open, setOpen] = useState(false);
-  const results: Programme[] = open ? searchProgrammes(term) : [];
+  const query = term.trim().toLowerCase();
+  const results: SearchEntry[] =
+    open && query !== ""
+      ? searchIndex.filter((entry) => matches(entry, query)).slice(0, 6)
+      : [];
 
   // "/" focuses global search, Esc closes any overlay. DESIGN.md section 7.
   useEffect(() => {

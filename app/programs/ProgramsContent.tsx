@@ -16,12 +16,7 @@ import {
   verticalLabel,
 } from "@/lib/verticals";
 
-import {
-  OWNERS,
-  PROGRAMME_TYPES,
-  type Programme,
-  SAMPLE_PROGRAMMES,
-} from "./sample-data";
+import type { ProgrammeRow } from "@/lib/data/programmes";
 
 /** Which of the four counts is currently filtering the table. */
 type CountFilter = "active" | "at_risk" | "blocked" | "awaiting_client" | null;
@@ -29,7 +24,7 @@ type CountFilter = "active" | "at_risk" | "blocked" | "awaiting_client" | null;
 const COUNTS: {
   id: Exclude<CountFilter, null>;
   label: string;
-  test: (p: Programme) => boolean;
+  test: (p: ProgrammeRow) => boolean;
   /** Status colour the number carries when above zero. Absent means none. */
   tone?: string;
 }[] = [
@@ -48,11 +43,17 @@ const COUNTS: {
   },
 ];
 
-function addDays(base: Date, days: number): string {
-  return new Date(base.getTime() + days * 86_400_000).toISOString().slice(0, 10);
-}
-
-export function ProgramsContent({ nowIso }: { nowIso: string }) {
+export function ProgramsContent({
+  nowIso,
+  programmes,
+  owners,
+  types,
+}: {
+  nowIso: string;
+  programmes: ProgrammeRow[];
+  owners: string[];
+  types: { value: string; label: string }[];
+}) {
   const now = new Date(nowIso);
   const router = useRouter();
 
@@ -88,13 +89,13 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     () =>
       COUNTS.map((count) => ({
         ...count,
-        value: SAMPLE_PROGRAMMES.filter(count.test).length,
+        value: programmes.filter(count.test).length,
       })),
-    [],
+    [programmes],
   );
 
   const rows = useMemo(() => {
-    return SAMPLE_PROGRAMMES.filter((programme) => {
+    return programmes.filter((programme) => {
       if (vertical !== "all" && programme.vertical !== vertical) return false;
       if (subVertical !== "all" && programme.subVertical !== subVertical) return false;
       if (type !== "all" && programme.type !== type) return false;
@@ -112,7 +113,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       }
       return true;
     });
-  }, [vertical, subVertical, type, status, owner, nameFilter, countFilter]);
+  }, [programmes, vertical, subVertical, type, status, owner, nameFilter, countFilter]);
 
   const activeFilterCount =
     (vertical !== "all" ? 1 : 0) +
@@ -133,7 +134,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     setCountFilter(null);
   }
 
-  const columns: Column<Programme>[] = [
+  const columns: Column<ProgrammeRow>[] = [
     {
       key: "name",
       header: "Program",
@@ -185,9 +186,9 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       width: "120px",
       truncate: true,
       cell: (row) => (
-        <span className="text-slate" title={row.type}>{row.type}</span>
+        <span className="text-slate" title={row.typeLabel}>{row.typeLabel}</span>
       ),
-      sortValue: (row) => row.type,
+      sortValue: (row) => row.typeLabel,
     },
     {
       key: "countdown",
@@ -195,20 +196,19 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       align: "right",
       width: "195px",
       cell: (row) =>
-        row.time.kind === "event" ? (
-          <Countdown
-            kind="event"
-            milestoneDate={addDays(now, row.time.milestoneOffset)}
-            now={now}
-          />
+        row.time === null ? (
+          // A programme with no dates set yet. A dash, not a blank.
+          <span className="text-slate" title="No dates set">
+            —
+          </span>
+        ) : row.time.kind === "event" ? (
+          <Countdown kind="event" milestoneDate={row.time.milestoneDate} now={now} />
         ) : (
           <Countdown
             kind="retainer"
-            startDate={addDays(now, row.time.startOffset)}
-            endDate={addDays(now, row.time.endOffset)}
-            gateDate={
-              row.time.gateOffset === null ? null : addDays(now, row.time.gateOffset)
-            }
+            startDate={row.time.startDate}
+            endDate={row.time.endDate}
+            gateDate={row.time.gateDate}
             now={now}
           />
         ),
@@ -315,9 +315,9 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
         onChange={(event) => setType(event.target.value)}
       >
         <option value="all">All types</option>
-        {PROGRAMME_TYPES.map((entry) => (
-          <option key={entry} value={entry}>
-            {entry}
+        {types.map((entry) => (
+          <option key={entry.value} value={entry.value}>
+            {entry.label}
           </option>
         ))}
       </Select>
@@ -344,7 +344,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
         onChange={(event) => setOwner(event.target.value)}
       >
         <option value="all">All owners</option>
-        {OWNERS.map((entry) => (
+        {owners.map((entry) => (
           <option key={entry} value={entry}>
             {entry}
           </option>
@@ -421,12 +421,17 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
           filters={filters}
           activeFilterCount={activeFilterCount}
           onClearFilters={clearFilters}
-          emptyMessage="No programs match these filters."
+          emptyMessage={
+            programmes.length === 0
+              ? "No programs yet."
+              : "No programs match these filters."
+          }
+          emptyActionLabel={programmes.length === 0 ? "New program" : undefined}
         />
       </div>
 
       <p className="mt-3 text-caption text-slate">
-        Sample data, not a database. Click a row to open the programme.
+        Click a row to open the programme.
       </p>
     </div>
   );
