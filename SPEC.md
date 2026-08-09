@@ -48,13 +48,15 @@ Build only these tables first.
 `id` uuid pk, matches Supabase auth user id · `full_name` text · `email` text · `role` text (engagement_lead, delivery_lead, specialist, data_ops, admin) · `active` boolean · `created_at`, `updated_at` timestamptz
 
 ### programs
-`id` uuid pk · `organisation_id` uuid fk · `name` text · `slug` text not null · `type` text (event, retainer, dedicated_team, series, research) · `status` text (onboarding, active, paused, complete) · `currency` text · `start_date`, `end_date` date · `fixed_milestone_date` date · `gate_date` date nullable · `approver_name`, `approver_email` text · `engagement_lead_id`, `delivery_lead_id` uuid fk users · `dashboard_token` text nullable · `dashboard_token_issued_at` timestamptz nullable · `slug_locked_at` timestamptz nullable · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `organisation_id` uuid fk · `name` text · `slug` text not null · `type` text (event, retainer, dedicated_team, series, research) · `status` text (onboarding, active, paused, complete) · `currency` text · `start_date`, `end_date` date · `fixed_milestone_date` date · `gate_date` date nullable · `onboarding_template_id` uuid fk onboarding_templates nullable · `approver_name`, `approver_email` text · `engagement_lead_id`, `delivery_lead_id` uuid fk users · `dashboard_token` text nullable · `dashboard_token_issued_at` timestamptz nullable · `slug_locked_at` timestamptz nullable · `created_at`, `updated_at` timestamptz
 
 `fixed_milestone_date` is the date that does not move. Event countdowns calculate from it.
 
 `gate_date` is the point in a retainer after which remaining time is short. It drives the retainer countdown colour. Nullable, because not every programme has one. See section 6.
 
 `delivery_lead_id` is the programme's owner for display purposes. It is the single name in the Owner column on the programme list.
+
+`onboarding_template_id` records which template this programme's onboarding was generated from. Null until generation. Once set it does not change, so a later version of the same template never retroactively alters a programme already under way. See section 4.
 
 `slug` is unique within an organisation, not globally. Same generation, editing and locking rules as the organisation slug.
 
