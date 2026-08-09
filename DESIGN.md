@@ -110,6 +110,8 @@ No gradients. No decorative icons. Icons only where they carry meaning, from Luc
 
 **Fixed top bar**, 52px, containing: global search (keyboard shortcut `/`), the current program context when inside one, and a single count of items awaiting the current user. That count is the most important element in the top bar and should be the only thing there that can turn amber or red.
 
+The awaiting-me count is onboarding responses assigned to the signed-in user that are neither approved nor N/A, across every programme they can see. Defined in SPEC.md section 6.3. It is a count and a link, not a dropdown of items.
+
 **Content area** on canvas background, 24px padding, max width unconstrained. This is a dense internal tool; do not centre content in a 1200px column and waste half the screen.
 
 ---
@@ -144,11 +146,20 @@ The most-used element in the platform. Mono, tabular.
 
 Format: `T-24d` for events, `W6 of 13` for retainers. Absolute date shown beside it in slate at 12px.
 
-Colour thresholds, applied to the countdown text itself:
-- More than 30 days or before the halfway week: `--ink`
-- 8 to 30 days, or past halfway: `--watch`
-- 7 days or fewer, or past the gate week: `--critical`
+Colour thresholds, applied to the countdown text itself. SPEC.md section 6.2 holds the arithmetic; this is what it looks like.
+
+Events, counting to `fixed_milestone_date`:
+- More than 30 days: `--ink`
+- 8 to 30 days: `--watch`
+- 7 days or fewer: `--critical`
 - Past the date: `--critical`, prefixed `T+`
+
+Retainers, counting weeks from `start_date`:
+- Before `gate_date`, or no gate date set: `--ink`
+- On or after `gate_date`: `--watch`
+- Past `end_date`: `--critical`
+
+The gate is a real date on the programme, not a computed halfway point. A programme with no gate date stays ink until it ends.
 
 ### Blocking items
 
@@ -183,19 +194,27 @@ Everything else assembles from these.
 
 ### 6.1 Program list
 
-The default landing screen. A table of every program across both entities.
+The default landing screen. A table of every programme.
 
-Columns: Program, Client, Type, Countdown, Phase, Owner, Blocking, Status. Countdown and Blocking are mono and right-aligned. Blocking shows a count, rendered in `--critical` when above zero and `--mute` when zero.
+Columns: Program, Client, Type, Countdown, Owner, Blocking, Status. Countdown and Blocking are mono and right-aligned. Blocking shows a count, rendered in `--critical` when above zero and `--mute` when zero.
+
+Status is the programme's own status: onboarding, active, paused, complete. There is no separate phase. One concept, one column.
+
+Owner is the delivery lead. The engagement lead appears on the programme detail screen, not here.
 
 Default sort: countdown ascending, so the most urgent sits at the top without anyone choosing to sort. This single default is most of what makes the screen useful.
 
-Above the table, a single row of four counts: Active, At risk, Blocked, Awaiting client. Each filters the table when clicked. These are text and number, not cards, not tiles.
+Above the table, a single row of four counts: Active, At risk, Blocked, Awaiting client. Each filters the table when clicked. These are text and number, not cards, not tiles. A programme can appear in more than one of them, so the four will not sum to the row count and are not meant to. Definitions are in SPEC.md section 6.3.
 
 ### 6.2 Program detail
 
 Where the team spends most of its time. Two columns.
 
-**Left, primary, roughly 70%.** Tabbed sections: Onboarding, Tasks, Audience, Attendees, Reports, Commercial. Onboarding renders as its sections with each field showing question, response, owner, due date, status pill and a blocking marker. Fields are inline editable. Sections show a completion count in their header: `Audience · 6 of 9`.
+**Left, primary, roughly 70%.** Tabbed sections: Onboarding, Tasks, Audience, Attendees, Reports, Commercial. Onboarding renders as its sections with each field showing question, response, owner, assignee, due date, status pill and a blocking marker. Fields are inline editable. Sections show a completion count in their header: `Audience · 6 of 9`.
+
+Owner is the party, client or Amzai. Assignee is the member of staff, and is what drives the awaiting-me count, so it is editable inline like everything else.
+
+Where the client answered a field, the attribution shows beneath the response in 11px mute: `Answered by Priya Raman · 12 Aug`. Where Amzai answered, the same line names the staff member. This is the only place the difference is visible and it should not need hunting for.
 
 **Right, persistent, roughly 30%.** Does not scroll away. Contains, in this order: the countdown, the next milestone with date, the blocking item count, the named client approver, the assigned team, and the last five audit entries in plain language. This column is the answer to "what is the state of this program" without reading anything else.
 

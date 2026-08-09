@@ -9,9 +9,9 @@ Read both before building or changing anything.
 
 ## What this is
 
-An internal operations platform for Amzai and BuyerForesight, a B2B executive events and demand generation business. Five to fifteen internal operators use it daily. Clients do not have accounts and never log in.
+An internal operations platform for Amzai, a B2B executive events and demand generation business. Five to fifteen internal operators use it daily. Clients do not have accounts and never log in.
 
-Stack: Next.js with TypeScript, Tailwind, Supabase Postgres, deployed on Cloudflare.
+Stack: Next.js with TypeScript, Tailwind, Supabase Postgres, deployed on Cloudflare via `@opennextjs/cloudflare`. Transactional email through Resend, which is the only thing that sends onboarding links.
 
 Two domains:
 
@@ -43,8 +43,10 @@ The person building this is not a developer. They run the business. They can rea
 
 - One module at a time. Finish and verify before starting the next.
 - Shared components live in `/components`. Do not write one-off markup for something that already exists as a component.
-- Every table gets an `updated_at` trigger and an audit trigger. The two exceptions are `audit_events` itself, which is append-only and would recurse, and the short-lived token tables, which are covered by explicit audit writes instead.
+- Every table gets `created_at`, `updated_at`, an `updated_at` trigger and an audit trigger. The one exception is `audit_events`, which has neither, and the migration must carry a comment saying why: it is append-only, so nothing ever updates it, and an audit trigger on the audit table would recurse.
 - Write migrations that can run twice without breaking.
+- Row level security policies never read a role directly out of `users`; that recurses. Every policy asks the `SECURITY DEFINER` helper function instead.
+- The audit trigger reads its actor from a session variable the route sets, not from `auth.uid()`. Client-facing routes run under the service role and have no database identity.
 - Client-facing surfaces use the same tokens and components as the internal app but follow DESIGN.md section 6.3 and 6.4, not section 5 density rules. They must work on a phone.
 - When something is uncertain, say so rather than picking silently.
 
