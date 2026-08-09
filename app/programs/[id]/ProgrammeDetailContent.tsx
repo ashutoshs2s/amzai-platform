@@ -156,7 +156,7 @@ export function ProgrammeDetailContent({
   const reassignCount = (fields ?? []).filter((f) => f.assignee === reassignFrom).length;
 
   return (
-    <main className="max-w-content px-6 py-6">
+    <div>
       {/* Breadcrumb back to the list, so the record is not a dead end. */}
       <Link
         href="/programs"
@@ -465,7 +465,7 @@ export function ProgrammeDetailContent({
         Sample data, not a database. Edits are held in the page and are lost on
         reload.
       </p>
-    </main>
+    </div>
   );
 }
 

@@ -1,4 +1,4 @@
-import type { VerticalId } from "@/lib/verticals";
+import { type VerticalId, subVerticalLabel, verticalLabel } from "@/lib/verticals";
 
 /**
  * Hard-coded sample programmes.
@@ -460,4 +460,71 @@ export function detailFor(programme: Programme): ProgrammeDetail {
       { dayOffset: -5, text: "Priya Raman created the programme" },
     ],
   };
+}
+
+/* ===========================================================================
+   Stand-ins for things that need authentication or a query.
+   =========================================================================== */
+
+/**
+ * The signed-in operator. There is no auth yet, so the top bar needs somebody
+ * to be. Replaced by the Supabase session when module 1 has real users.
+ */
+export const CURRENT_USER = "Sana Iqbal";
+
+export type AwaitingSummary = {
+  count: number;
+  overdue: number;
+  dueSoon: number;
+};
+
+/**
+ * The awaiting-me count. SPEC.md section 7.3: onboarding responses assigned to
+ * the signed-in user whose status is neither approved nor N/A, across every
+ * programme they can see.
+ *
+ * Overdue and due-soon are split out because the top bar colours the count by
+ * urgency, and a number that is permanently amber stops being read.
+ */
+export function awaitingFor(name: string): AwaitingSummary {
+  let count = 0;
+  let overdue = 0;
+  let dueSoon = 0;
+
+  for (const programme of SAMPLE_PROGRAMMES) {
+    for (const field of detailFor(programme).onboarding ?? []) {
+      if (field.assignee !== name) continue;
+      if (field.status === "approved" || field.status === "na") continue;
+      count += 1;
+      if (field.dueOffset < 0) overdue += 1;
+      else if (field.dueOffset <= 7) dueSoon += 1;
+    }
+  }
+
+  return { count, overdue, dueSoon };
+}
+
+/**
+ * Programmes matching a search term, for the top bar.
+ *
+ * Matches the things an operator actually half-remembers: the name, who owns
+ * it, what kind of work it is, and the market it sits in. Searching
+ * "cybersecurity" and getting nothing because the word only appears in a
+ * column the search ignores is worse than no search.
+ */
+export function searchProgrammes(term: string): Programme[] {
+  const q = term.trim().toLowerCase();
+  if (!q) return [];
+  return SAMPLE_PROGRAMMES.filter((p) =>
+    [
+      p.name,
+      p.owner,
+      p.type,
+      verticalLabel(p.vertical),
+      subVerticalLabel(p.subVertical) ?? "",
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(q),
+  ).slice(0, 6);
 }

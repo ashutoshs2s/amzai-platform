@@ -139,7 +139,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       header: "Program",
       // Capped, so the name cannot absorb the table and push the countdown to
       // the far edge. The full name stays reachable on hover.
-      width: "320px",
+      width: "280px",
       truncate: true,
       cell: (row) => (
         <span className="font-medium text-ink" title={row.name}>
@@ -151,14 +151,14 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "vertical",
       header: "Vertical",
-      width: "150px",
+      width: "140px",
       cell: (row) => <span className="text-slate">{verticalLabel(row.vertical)}</span>,
       sortValue: (row) => verticalLabel(row.vertical),
     },
     {
       key: "subVertical",
       header: "Sub-vertical",
-      width: "160px",
+      width: "150px",
       truncate: true,
       cell: (row) =>
         row.subVertical ? (
@@ -177,7 +177,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "type",
       header: "Type",
-      width: "115px",
+      width: "100px",
       cell: (row) => <span className="text-slate">{row.type}</span>,
       sortValue: (row) => row.type,
     },
@@ -185,7 +185,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       key: "countdown",
       header: "Countdown",
       align: "right",
-      width: "185px",
+      width: "175px",
       cell: (row) =>
         row.time.kind === "event" ? (
           <Countdown
@@ -209,7 +209,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "owner",
       header: "Owner",
-      width: "140px",
+      width: "130px",
       truncate: true,
       cell: (row) => (
         <span className="text-slate" title={row.owner}>
@@ -222,7 +222,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       key: "blocking",
       header: "Blocking",
       align: "right",
-      width: "90px",
+      width: "80px",
       // The platform's central concept. Above zero it carries the critical
       // colour at medium weight, so it reads as loudly as it matters; at zero
       // it drops to slate and gets out of the way.
@@ -243,7 +243,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       header: "Status",
       // Sized to its content like every other column. The table ends here
       // rather than stretching, so there is no slack to absorb.
-      width: "120px",
+      width: "110px",
       cell: (row) => <StatusPill status={row.status} />,
       sortValue: (row) => row.status,
     },
@@ -355,7 +355,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
   );
 
   return (
-    <main className="max-w-content px-6 py-6">
+    <div>
       <h1 className="text-page-title font-semibold">Programs</h1>
 
       {/*
@@ -420,6 +420,6 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       <p className="mt-3 text-caption text-slate">
         Sample data, not a database. Click a row to open the programme.
       </p>
-    </main>
+    </div>
   );
 }

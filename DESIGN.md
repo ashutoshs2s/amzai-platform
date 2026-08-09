@@ -154,9 +154,20 @@ No gradients. No decorative icons. Icons only where they carry meaning, from Luc
 
 **Persistent left rail**, 220px, listing the eight modules. Current module marked with an accent left border, not a filled background.
 
+**All eight are listed whether or not they exist.** A module hidden until it is built tells an operator nothing about what is coming; one that is listed but navigates nowhere is worse, because it reads as broken. Unbuilt modules render in `--mute` with no hover and no link, which is precisely that token's role: disabled text, exempt from the contrast floor. One line at the foot of the rail says why, rather than seven repeated badges. Availability is derived from whether a module has a route, so the rail cannot fall out of step with the screens that exist.
+
 **Fixed top bar**, 52px, containing: global search (keyboard shortcut `/`), the current program context when inside one, and a single count of items awaiting the current user. That count is the most important element in the top bar and should be the only thing there that can turn amber or red.
 
 The awaiting-me count is onboarding responses assigned to the signed-in user that are neither approved nor N/A, across every programme they can see. Defined in SPEC.md section 7.3. It is a count and a link, not a dropdown of items.
+
+Its colour follows the countdown thresholds in SPEC.md section 7.2, so urgency reads the same in the top bar as in a table:
+
+- nothing assigned: `--slate`
+- assigned, none due within 7 days: `--ink`
+- something due within 7 days: `--watch`
+- something overdue: `--critical`
+
+Amber whenever the count is non-zero would mean amber permanently, and a number that is always amber stops being read. The word beside it never changes, so the colour is not carrying the meaning alone.
 
 **Content area** on canvas background, 24px padding, capped at 1500px and **left-aligned, not centred**.
 
@@ -291,7 +302,9 @@ The Sub-vertical filter depends on the Vertical filter:
 
 Default sort: countdown ascending, so the most urgent sits at the top without anyone choosing to sort. This single default is most of what makes the screen useful.
 
-**Column widths.** The Program column is capped at 320px and truncates with the full name on hover. Left to size itself it absorbs every spare pixel and pushes the countdown to the far right of the screen, which breaks the one scan the screen exists for: name on the left, time next to it. The columns between them stay compact for the same reason. Slack goes to the right-hand edge, past Status, where nothing is being read across.
+**Column widths.** Every column declares a width and the table uses a fixed layout, so the declared widths are proportions rather than suggestions. Left to size itself the Program column absorbs every spare pixel and pushes the countdown to the far right of the screen, which breaks the one scan this screen exists for: name on the left, time next to it.
+
+Leftover space is distributed across all columns in proportion, never dumped into the last one. A single column absorbing the slack turns into a wide empty band that reads as unfinished, which is what happens if any column is left without a width.
 
 **The four counts.** Above the table: Active, At risk, Blocked, Awaiting client. Each filters the table when clicked, and a programme can appear in more than one, so the four will not sum to the row count and are not meant to. Definitions are in SPEC.md section 7.3.
 

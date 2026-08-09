@@ -194,19 +194,19 @@ export function DataTable<T>({
       </p>
 
       {/*
-        A fixed-layout table sizes to the sum of its columns and stops there,
-        so the border wraps the data rather than stretching to the container
-        and leaving a fat empty column at the end. An auto table still fills
-        its container, which is what a table with no declared widths wants.
+        A fixed-layout table fills its container and honours the declared
+        column widths, distributing any leftover across them proportionally.
+        Two things follow: no column silently absorbs all the slack and turns
+        into a wide empty band, and the table never overflows the content area.
+
+        `table-fixed` needs a definite table width to work. Paired with `w-auto`
+        the algorithm is undefined and browsers quietly fall back to auto
+        layout, honouring none of the declared widths.
       */}
-      <div
-        className={`overflow-x-auto border border-line bg-surface ${
-          layout === "fixed" ? "w-fit max-w-full" : ""
-        }`}
-      >
+      <div className="overflow-x-auto border border-line bg-surface">
         <table
-          className={`border-collapse text-body ${
-            layout === "fixed" ? "w-auto table-fixed" : "w-full"
+          className={`w-full border-collapse text-body ${
+            layout === "fixed" ? "table-fixed" : ""
           }`}
         >
           <thead>
