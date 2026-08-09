@@ -115,6 +115,12 @@ The mono roles are unchanged. IBM Plex Mono is unaffected by the switch, and at 
 
 Set `font-variant-numeric: tabular-nums` globally on the mono face.
 
+**Dates never use locale-dependent formatting.** No `toLocaleDateString`, no `Intl.DateTimeFormat`. Month names come from an explicit array in `lib/time.ts`, always three letters: Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec.
+
+This is not pedantry about house style. Locale data differs between runtimes: Node's ICU renders September in `en-GB` as "Sept" while browsers render "Sep". A server-rendered countdown and its client hydration then disagree for one month in twelve, which surfaces as a hydration mismatch that is invisible the other eleven months of the year and impossible to reproduce out of season. It also means a date could read differently depending on how somebody's laptop is configured, in a product whose entire premise is that everyone is looking at the same deadline.
+
+The format is `9 Sep` where the year is obvious from context, and `9 Sep 2026` where it is not.
+
 **Headings do not shout.** The uppercase letterspaced treatment is emphatic, and emphasis stops working when it is everywhere. Use it at most once on a screen, for the one division that genuinely organises the page, and often not at all. Every other section heading is sentence case at 500: `Onboarding`, not `ONBOARDING`.
 
 Hierarchy on a dense screen comes from position and the 24px of space above a heading, not from making the type louder. A screen with nine uppercase headings has no hierarchy at all, just nine things shouting.

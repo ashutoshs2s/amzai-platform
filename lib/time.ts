@@ -38,23 +38,45 @@ export function daysBetween(from: DateLike, to: DateLike): number {
   );
 }
 
+/**
+ * Month abbreviations, written out rather than derived.
+ *
+ * Dates are never formatted with `toLocaleDateString` or `Intl.DateTimeFormat`.
+ * Those read the runtime's locale data, and the runtime's locale data is not
+ * the same everywhere: Node's ICU renders September in en-GB as "Sept" while
+ * browsers render "Sep". A server-rendered countdown and its client hydration
+ * then disagree on one month of the year, which React reports as a hydration
+ * mismatch and which is invisible for the other eleven months.
+ *
+ * An explicit array removes the dependency entirely. Every date renders
+ * identically on the server, in every browser, and on any machine whatever its
+ * system locale is set to.
+ */
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
 /** `12 Aug`. The form used beside a countdown and in freshness markers. */
 export function formatDayMonth(value: DateLike): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(toUtcDay(value));
+  const day = toUtcDay(value);
+  return `${day.getUTCDate()} ${MONTHS[day.getUTCMonth()]}`;
 }
 
 /** `30 Nov 2026`. Used where the year matters. */
 export function formatDayMonthYear(value: DateLike): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(toUtcDay(value));
+  const day = toUtcDay(value);
+  return `${day.getUTCDate()} ${MONTHS[day.getUTCMonth()]} ${day.getUTCFullYear()}`;
 }
 
 export type CountdownResult = {
