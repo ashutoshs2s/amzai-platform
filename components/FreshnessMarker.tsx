@@ -16,7 +16,9 @@ import {
  */
 
 const TONE_CLASS: Record<FreshnessTone, string> = {
-  mute: "text-mute",
+  // Slate, not mute. A freshness marker is meaningful text and has to clear the
+  // contrast floor; mute is reserved for placeholder and disabled text.
+  slate: "text-slate",
   watch: "text-watch",
   critical: "text-critical",
 };
@@ -50,7 +52,7 @@ export function FreshnessMarker({
         has gone amber or red, the reason is spelled out rather than left to the
         colour to imply.
       */}
-      {tone !== "mute" && (
+      {tone !== "slate" && (
         <span className="font-medium">
           {tone === "critical" ? "· out of date" : "· ageing"}
         </span>

@@ -13,7 +13,14 @@
   /* Neutrals carry the interface. */
   --ink: #14161a; /* primary text, headers */
   --slate: #5b6270; /* secondary text, labels */
-  --mute: #8b92a0; /* tertiary, placeholder, disabled */
+  /*
+    Placeholder and disabled text only. It sits at 3.13:1 on white, below the
+    4.5:1 floor in DESIGN.md section 7, and darkening it enough to pass would
+    make it indistinguishable from --slate. Placeholder and disabled text is
+    exempt from the floor; meaningful text is not. Anything a reader has to be
+    able to read, including captions and freshness markers, uses --slate.
+  */
+  --mute: #8b92a0;
   --line: #e3e5e9; /* borders, dividers, table rules */
   --surface: #ffffff; /* cards, tables, panels */
   --canvas: #f7f8fa; /* page background */
@@ -23,7 +30,7 @@
   /* Colour carries meaning only. These are for status and nothing else. */
   --clear: #157347; /* on track, approved, confirmed */
   --clear-bg: #e9f5ee;
-  --watch: #b26b00; /* at risk, due soon, awaiting */
+  --watch: #9a5d00; /* at risk, due soon, awaiting */
   --watch-bg: #fdf3e3;
   --critical: #b3261e; /* blocking, overdue, failed */
   --critical-bg: #fbeae9;

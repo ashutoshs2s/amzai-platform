@@ -41,8 +41,8 @@ Neutrals carry the interface. Colour carries meaning only.
 
 ```
 --ink:        #14161A   /* primary text, headers */
---slate:      #5B6270   /* secondary text, labels */
---mute:       #8B92A0   /* tertiary, placeholder, disabled */
+--slate:      #5B6270   /* secondary text, labels, captions, freshness */
+--mute:       #8B92A0   /* placeholder and disabled text only */
 --line:       #E3E5E9   /* borders, dividers, table rules */
 --surface:    #FFFFFF   /* cards, tables, panels */
 --canvas:     #F7F8FA   /* page background */
@@ -50,18 +50,22 @@ Neutrals carry the interface. Colour carries meaning only.
 --accent-sub: #E8F1F0   /* accent background wash, selected rows */
 ```
 
+**`--mute` is not a third tier of text.** It sits at 3.13:1 on white, below the floor in section 7, and darkening it far enough to pass makes it indistinguishable from `--slate`. So its role is narrowed rather than its value changed: placeholder text and disabled controls, both of which the contrast floor exempts. Everything a reader is expected to actually read, including captions and freshness markers, uses `--slate`.
+
 Status colours, used only for status. Never decoratively.
 
 ```
 --clear:      #157347   /* on track, approved, confirmed */
 --clear-bg:   #E9F5EE
---watch:      #B26B00   /* at risk, due soon, awaiting */
+--watch:      #9A5D00   /* at risk, due soon, awaiting */
 --watch-bg:   #FDF3E3
 --critical:   #B3261E   /* blocking, overdue, failed */
 --critical-bg:#FBEAE9
 --idle:       #5B6270   /* not started, N/A, complete */
 --idle-bg:    #F0F1F4
 ```
+
+There are **four** semantic status tones, not five. `--watch` was darkened from `#B26B00`, which failed the section 7 floor at 4.20:1 on white and 3.82:1 on its own pill background. The current value clears it everywhere: 5.33 on surface, 5.02 on canvas, 4.85 on `--watch-bg`.
 
 Dark mode is out of scope for v1. Do not build it partially.
 
@@ -83,7 +87,7 @@ Both are free on Google Fonts. If Amzai has brand faces, substitute the UI face 
 | Label | 12px | 500 | Slate |
 | Metric, large | 28px | 500 | Mono, tabular figures |
 | Time and count | 13px | 400 | Mono, tabular figures |
-| Caption | 11px | 400 | Mute |
+| Caption | 11px | 400 | Slate |
 
 Set `font-variant-numeric: tabular-nums` globally on the mono face.
 
@@ -138,7 +142,9 @@ One component, used everywhere, never restyled per module.
 
 A pill: 11px, 500 weight, uppercase, 2px 8px padding, 4px radius, status background with status text colour. Text only, no dot, no icon.
 
-Map every status in the platform to one of the five semantic states rather than inventing new colours per module. Approved, confirmed and on track are all `clear`. Submitted, awaiting and due soon are all `watch`. Blocked, overdue and failed are all `critical`.
+Map every status in the platform to one of the four semantic tones rather than inventing new colours per module. Approved, confirmed and on track are all `clear`. Submitted, awaiting and due soon are all `watch`. Blocked, overdue and failed are all `critical`. Not started, in progress, N/A, paused and complete are all `idle`.
+
+`in_progress` is deliberately `idle` rather than `watch`. Amber has to mean at risk, or it stops meaning anything: a field somebody is actively working on is not a warning.
 
 ### Countdown
 
@@ -177,7 +183,22 @@ Anywhere a record has open blocking items, show a persistent bar at the top of t
 
 Critical, because dashboard figures are partly hand-entered.
 
-Every number that is not live carries a freshness marker beneath or beside it: `Updated 4 Aug · manual` in 11px mute. If a manually entered figure is more than 7 days old, the marker turns `--watch`. More than 14 days, `--critical`. A stale number that looks current is worse than no number.
+Every number that is not live carries a freshness marker beneath or beside it: `Updated 4 Aug · manual` in 11px slate. More than 7 days old, the marker turns `--watch`. More than 14 days, `--critical`.
+
+The thresholds apply to automatic figures as well as hand-entered ones. A sync that quietly stopped three weeks ago produces a number just as misleading as one somebody forgot to update. A stale number that looks current is worse than no number.
+
+When the marker has gone amber or red, it says why in words as well as colour: `Updated 22 Jul · manual · out of date`.
+
+### Buttons
+
+One component, four variants, no others. 32px high, matching the field height, so a button sits level with an input. 4px radius, 13px medium text, no shadow.
+
+- **Primary** — accent fill, surface text. The one action that moves the screen forward. At most one per view.
+- **Secondary** — surface fill, hairline border, ink text. Everything else.
+- **Quiet** — no fill, no border, accent text. For actions sitting inside dense furniture, such as clearing a filter.
+- **Destructive** — critical fill, surface text. Always paired with the typed confirmation below, never on its own.
+
+Disabled buttons drop to 40% opacity and are always accompanied by a line of text saying what would enable them. A disabled control with no explanation is a dead end.
 
 ### Forms
 
@@ -196,7 +217,7 @@ Everything else assembles from these.
 
 The default landing screen. A table of every programme.
 
-Columns: Program, Client, Type, Countdown, Owner, Blocking, Status. Countdown and Blocking are mono and right-aligned. Blocking shows a count, rendered in `--critical` when above zero and `--mute` when zero.
+Columns: Program, Client, Type, Countdown, Owner, Blocking, Status. Countdown and Blocking are mono and right-aligned. Blocking shows a count, rendered in `--critical` when above zero and `--slate` when zero. Not `--mute`: a zero is a real reading, not a placeholder, and the reader has to be able to tell it apart from a one.
 
 Status is the programme's own status: onboarding, active, paused, complete. There is no separate phase. One concept, one column.
 
@@ -301,7 +322,7 @@ Not optional, not announced.
 
 - Keyboard navigable throughout. Visible focus ring on every interactive element, 2px accent.
 - `/` focuses global search. `Esc` closes any overlay.
-- Contrast 4.5:1 minimum on all text. Check the amber, which is the one at risk.
+- Contrast 4.5:1 minimum on all meaningful text. Placeholder and disabled text is exempt, and `--mute` is the only token permitted to rely on that exemption. The amber was the one at risk and has been darkened to clear the floor; re-check it if it is ever changed again. `/styleguide` computes every pairing from the live token values, so this is checkable rather than assumed.
 - Status never communicated by colour alone. Always a word beside it.
 - `prefers-reduced-motion` respected. Transitions capped at 150ms regardless.
 - Internal screens are desktop-first and need not work below 1024px. Both client surfaces, the dashboard and the onboarding form, must work on a phone down to 360px.
@@ -324,7 +345,9 @@ On client surfaces, additionally: a login screen, a password field, a "create an
 Paste these in order. They replace prompt 6 in the Build Kit.
 
 **Set up the system**
-> Read DESIGN.md in the repo root. Set up the design tokens from section 3 as CSS custom properties in a global stylesheet, configure Tailwind to use them, and load Inter and IBM Plex Mono. Then build the shared components from section 5: DataTable, StatusPill, Countdown, BlockingBar, EmptyState, FreshnessMarker, and the form field components. Build them as reusable components with sensible props, not as one-off markup. Show me a single page that renders every component in every state so I can review them together before we use them anywhere.
+> Read DESIGN.md in the repo root. Set up the design tokens from section 3 as CSS custom properties in a global stylesheet, configure Tailwind to use them, and load Inter and IBM Plex Mono. Then build the shared components from section 5: DataTable, StatusPill, Countdown, BlockingBar, EmptyState, FreshnessMarker, Button, and the form field components. Build them as reusable components with sensible props, not as one-off markup. Show me a single page that renders every component in every state so I can review them together before we use them anywhere.
+
+*Built. The components live in `/components`, the tokens in `app/globals.css`, and the review page at `/styleguide`.*
 
 **App shell**
 > Following DESIGN.md section 4, build the app shell: persistent 220px left rail with the eight modules, fixed 52px top bar with global search bound to the "/" key, current program context, and the awaiting-me count. Content area on canvas background. Make the rail and top bar layout components that every screen renders inside.

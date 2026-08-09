@@ -42,6 +42,12 @@ Stop the server with `Ctrl` and `C` in the same terminal.
 | `npm run cf:preview` | Runs the Cloudflare version locally. Not needed yet. |
 | `npm run cf:deploy` | Deploys to Cloudflare. Not until there is something to deploy. |
 
+Stop `npm run dev` before running `npm run build`. Both write to the same `.next` folder, and running them together can leave duplicate generated files that make `npm run typecheck` report errors that are not in your code. If that happens, delete the `.next` folder and build again.
+
+## The styleguide
+
+`http://localhost:3000/styleguide` renders every shared component in every state, with a live contrast audit computed from the current token values. Check it after any change to `app/globals.css` or anything in `/components`.
+
 ## Status
 
 Scaffold only. No database tables, no design system, no screens yet.

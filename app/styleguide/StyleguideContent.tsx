@@ -178,7 +178,7 @@ function Case({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-caption text-mute">{label}</span>
+      <span className="text-caption text-slate">{label}</span>
       <div>{children}</div>
     </div>
   );
@@ -191,7 +191,7 @@ function Case({
 const TOKENS: { name: string; value: string; use: string }[] = [
   { name: "--ink", value: "#14161A", use: "primary text, headers" },
   { name: "--slate", value: "#5B6270", use: "secondary text, labels" },
-  { name: "--mute", value: "#8B92A0", use: "tertiary, placeholder, disabled" },
+  { name: "--mute", value: "#8B92A0", use: "placeholder and disabled text only" },
   { name: "--line", value: "#E3E5E9", use: "borders, dividers, table rules" },
   { name: "--surface", value: "#FFFFFF", use: "cards, tables, panels" },
   { name: "--canvas", value: "#F7F8FA", use: "page background" },
@@ -199,7 +199,7 @@ const TOKENS: { name: string; value: string; use: string }[] = [
   { name: "--accent-sub", value: "#E8F1F0", use: "accent wash, selected rows" },
   { name: "--clear", value: "#157347", use: "on track, approved, confirmed" },
   { name: "--clear-bg", value: "#E9F5EE", use: "clear background" },
-  { name: "--watch", value: "#B26B00", use: "at risk, due soon, awaiting" },
+  { name: "--watch", value: "#9A5D00", use: "at risk, due soon, awaiting" },
   { name: "--watch-bg", value: "#FDF3E3", use: "watch background" },
   { name: "--critical", value: "#B3261E", use: "blocking, overdue, failed" },
   { name: "--critical-bg", value: "#FBEAE9", use: "critical background" },
@@ -207,17 +207,36 @@ const TOKENS: { name: string; value: string; use: string }[] = [
   { name: "--idle-bg", value: "#F0F1F4", use: "idle background" },
 ];
 
-const CONTRAST_PAIRS: { fg: string; fgHex: string; bg: string; bgHex: string }[] = [
+const CONTRAST_PAIRS: {
+  fg: string;
+  fgHex: string;
+  bg: string;
+  bgHex: string;
+  /** Placeholder and disabled text is exempt from the 4.5:1 floor. */
+  exempt?: string;
+}[] = [
   { fg: "ink", fgHex: "#14161A", bg: "surface", bgHex: "#FFFFFF" },
   { fg: "slate", fgHex: "#5B6270", bg: "surface", bgHex: "#FFFFFF" },
-  { fg: "mute", fgHex: "#8B92A0", bg: "surface", bgHex: "#FFFFFF" },
-  { fg: "mute", fgHex: "#8B92A0", bg: "canvas", bgHex: "#F7F8FA" },
+  {
+    fg: "mute",
+    fgHex: "#8B92A0",
+    bg: "surface",
+    bgHex: "#FFFFFF",
+    exempt: "placeholder and disabled only",
+  },
+  {
+    fg: "mute",
+    fgHex: "#8B92A0",
+    bg: "canvas",
+    bgHex: "#F7F8FA",
+    exempt: "placeholder and disabled only",
+  },
   { fg: "accent", fgHex: "#1F5F5B", bg: "surface", bgHex: "#FFFFFF" },
   { fg: "accent", fgHex: "#1F5F5B", bg: "accent-sub", bgHex: "#E8F1F0" },
   { fg: "clear", fgHex: "#157347", bg: "clear-bg", bgHex: "#E9F5EE" },
-  { fg: "watch", fgHex: "#B26B00", bg: "surface", bgHex: "#FFFFFF" },
-  { fg: "watch", fgHex: "#B26B00", bg: "canvas", bgHex: "#F7F8FA" },
-  { fg: "watch", fgHex: "#B26B00", bg: "watch-bg", bgHex: "#FDF3E3" },
+  { fg: "watch", fgHex: "#9A5D00", bg: "surface", bgHex: "#FFFFFF" },
+  { fg: "watch", fgHex: "#9A5D00", bg: "canvas", bgHex: "#F7F8FA" },
+  { fg: "watch", fgHex: "#9A5D00", bg: "watch-bg", bgHex: "#FDF3E3" },
   { fg: "critical", fgHex: "#B3261E", bg: "critical-bg", bgHex: "#FBEAE9" },
   { fg: "idle", fgHex: "#5B6270", bg: "idle-bg", bgHex: "#F0F1F4" },
 ];
@@ -230,7 +249,7 @@ const TYPE_ROLES: { role: string; className: string; sample: string }[] = [
   { role: "Label · 12px / 500 slate", className: "text-label font-medium text-slate", sample: "Delivery lead" },
   { role: "Metric, large · 28px / 500 mono tabular", className: "text-metric font-medium font-time", sample: "148" },
   { role: "Time and count · 13px / 400 mono tabular", className: "text-body font-time", sample: "T-24d" },
-  { role: "Caption · 11px / 400 mute", className: "text-caption text-mute", sample: "Updated 4 Aug · manual" },
+  { role: "Caption · 11px / 400 slate", className: "text-caption text-slate", sample: "Updated 4 Aug · manual" },
 ];
 
 const RESPONSE_STATUSES = [
@@ -316,7 +335,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
       width: "100px",
       cell: (row) => (
         <span
-          className={`font-time ${row.blocking > 0 ? "text-critical" : "text-mute"}`}
+          className={`font-time ${row.blocking > 0 ? "text-critical" : "text-slate"}`}
         >
           {row.blocking}
         </span>
@@ -405,7 +424,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
                 <div className="p-2">
                   <div className="font-time text-caption text-ink">{token.name}</div>
                   <div className="font-time text-caption text-slate">{token.value}</div>
-                  <div className="mt-1 text-caption text-mute">{token.use}</div>
+                  <div className="mt-1 text-caption text-slate">{token.use}</div>
                 </div>
               </div>
             ))}
@@ -416,7 +435,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
         <Section
           id="contrast"
           title="Contrast audit"
-          note="DESIGN.md section 7 sets a floor of 4.5:1 on all text and warns that the amber is the one at risk. These ratios are computed from the live token values, not asserted. Two pairings fail."
+          note="DESIGN.md section 7 sets a floor of 4.5:1 on all meaningful text. These ratios are computed from the live token values, not asserted. Every meaningful pairing passes. The two mute rows are listed for completeness: mute is now reserved for placeholder and disabled text, which the floor exempts."
         >
           <div className="overflow-x-auto border border-line bg-surface">
             <table className="w-full border-collapse text-body">
@@ -441,13 +460,27 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
                   return (
                     <tr key={`${pair.fg}-${pair.bg}`} className="border-b border-line">
                       <td className="h-row px-3 font-time text-caption">{pair.fg}</td>
-                      <td className="h-row px-3 font-time text-caption text-slate">{pair.bg}</td>
+                      <td className="h-row px-3 font-time text-caption text-slate">
+                        {pair.bg}
+                        {pair.exempt && (
+                          <>
+                            {" "}
+                            <span className="ml-1 font-ui text-caption text-slate">
+                              — {pair.exempt}
+                            </span>
+                          </>
+                        )}
+                      </td>
                       <td className="h-row px-3 text-right font-time">{ratio.toFixed(2)}</td>
                       <td className="h-row px-3 text-right">
-                        <StatusPill
-                          status={passes ? "approved" : "blocked"}
-                          label={passes ? "Pass" : "Fail"}
-                        />
+                        {pair.exempt ? (
+                          <StatusPill status="na" tone="idle" label="Exempt" />
+                        ) : (
+                          <StatusPill
+                            status={passes ? "approved" : "blocked"}
+                            label={passes ? "Pass" : "Fail"}
+                          />
+                        )}
                       </td>
                     </tr>
                   );
@@ -462,7 +495,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
           <div className="flex flex-col gap-4 border border-line bg-surface p-4">
             {TYPE_ROLES.map((role) => (
               <div key={role.role} className="flex flex-col gap-1">
-                <span className="text-caption text-mute">{role.role}</span>
+                <span className="text-caption text-slate">{role.role}</span>
                 <span className={role.className}>{role.sample}</span>
               </div>
             ))}
@@ -477,7 +510,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
         >
           <div className="grid max-w-lg grid-cols-2 gap-6 border border-line bg-surface p-4">
             <div>
-              <div className="mb-2 text-caption text-mute">Mono, tabular</div>
+              <div className="mb-2 text-caption text-slate">Mono, tabular</div>
               {["T-4d", "T-19d", "T-112d", "W6 of 13", "T+6d"].map((value) => (
                 <div key={value} className="font-time text-body">
                   {value}
@@ -485,7 +518,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
               ))}
             </div>
             <div>
-              <div className="mb-2 text-caption text-mute">UI face, for comparison</div>
+              <div className="mb-2 text-caption text-slate">UI face, for comparison</div>
               {["T-4d", "T-19d", "T-112d", "W6 of 13", "T+6d"].map((value) => (
                 <div key={value} className="text-body">
                   {value}
@@ -527,15 +560,12 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
               </div>
             </Case>
 
-            <div className="border-l-[3px] border-watch bg-watch-bg p-3 text-body">
-              <strong className="font-medium">Needs a decision.</strong> DESIGN.md
-              section 5 says every status maps to one of{" "}
-              <em>five</em> semantic states, but section 3 defines four status
-              colours: clear, watch, critical, idle. The status with nowhere to go
-              is <span className="font-time">in_progress</span>. It is mapped to
-              idle here, because amber means &ldquo;at risk&rdquo; and a healthy
-              in-progress field is not at risk. Tell me whether there is a fifth
-              state, or whether in_progress should share one of the four.
+            <div className="border-l-[3px] border-line bg-canvas p-3 text-body text-slate">
+              <strong className="font-medium text-ink">Settled.</strong> There are
+              four semantic tones, not five: clear, watch, critical, idle.{" "}
+              <span className="font-time">in_progress</span> maps to idle, because
+              amber has to mean &ldquo;at risk&rdquo; or it stops meaning
+              anything. DESIGN.md section 5 has been corrected to say four.
             </div>
           </div>
         </Section>
@@ -625,7 +655,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
             <Case label="Out of date · 20 days · manual · critical">
               <FreshnessMarker updatedAt={addDays(now, -20)} source="manual" now={now} />
             </Case>
-            <Case label="Exactly 7 days · still mute (boundary)">
+            <Case label="Exactly 7 days · still slate (boundary)">
               <FreshnessMarker updatedAt={addDays(now, -7)} source="manual" now={now} />
             </Case>
             <Case label="Exactly 14 days · watch, not yet critical (boundary)">
@@ -683,7 +713,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
               <BlockingBar count={2} oldestLabel="Speaker biographies" oldestDueDate={addDays(now, 2)} />
             </Case>
             <Case label="Count of zero · renders nothing, deliberately">
-              <div className="border border-dashed border-line p-3 text-caption text-mute">
+              <div className="border border-dashed border-line p-3 text-caption text-slate">
                 <BlockingBar count={0} oldestLabel="Nothing" />
                 (empty by design — the bar disappears only when items are cleared)
               </div>
@@ -712,7 +742,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
             activeFilterCount={filtersActive}
             onClearFilters={() => setFiltersActive(0)}
           />
-          <p className="mt-2 text-caption text-mute">
+          <p className="mt-2 text-caption text-slate">
             {clicked ? `Row opened: ${clicked}` : "No row opened yet."}
           </p>
         </Section>
@@ -903,7 +933,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
         <Section
           id="buttons"
           title="Buttons"
-          note="Not named in DESIGN.md section 5, but the empty, error and form states all need one. 32px high so it sits level with a field."
+          note="Specified in DESIGN.md section 5. 32px high so it sits level with a field. Four variants, no others: primary, secondary, quiet, destructive."
         >
           <div className="flex flex-wrap items-center gap-3 border border-line bg-surface p-4">
             <Button variant="primary">New program</Button>
@@ -917,7 +947,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
               Disabled
             </Button>
           </div>
-          <p className="mt-2 text-caption text-mute">
+          <p className="mt-2 text-caption text-slate">
             The disabled primary is the generate-onboarding gate from SPEC.md
             section 4.2, which stays disabled until a team is assigned.
           </p>

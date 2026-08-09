@@ -1,15 +1,11 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 /**
- * Button.
+ * Button. DESIGN.md section 5.
  *
- * Not named in DESIGN.md section 5, but EmptyState, ErrorState and the forms
- * all need one, and a shared component beats each of them inventing its own
- * markup. Height matches the 32px field height from section 5 so a button can
- * sit level with an input.
- *
- * No shadows, 4px radius, accent for primary. Focus ring comes from the global
- * :focus-visible rule in globals.css.
+ * Four variants and no others. 32px high, matching the field height, so a
+ * button sits level with an input. No shadows, 4px radius, accent for primary.
+ * The focus ring comes from the global :focus-visible rule in globals.css.
  */
 
 type Variant = "primary" | "secondary" | "quiet" | "destructive";

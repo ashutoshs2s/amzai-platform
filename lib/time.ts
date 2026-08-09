@@ -124,20 +124,23 @@ export function retainerCountdown(
   };
 }
 
-export type FreshnessTone = "mute" | "watch" | "critical";
+export type FreshnessTone = "slate" | "watch" | "critical";
 
 /**
- * Freshness of a hand-entered figure. DESIGN.md section 5.
+ * Freshness of any figure that is not live. DESIGN.md section 5.
  *
- *   7 days or fewer    mute
+ *   7 days or fewer    slate
  *   more than 7        watch
  *   more than 14       critical
  *
- * A stale number that looks current is worse than no number.
+ * The thresholds apply to automatic figures as well as hand-entered ones. A
+ * sync that silently stopped three weeks ago produces a number just as
+ * misleading as one somebody forgot to update, and a stale number that looks
+ * current is worse than no number.
  */
 export function freshnessTone(updatedAt: DateLike, now: DateLike): FreshnessTone {
   const age = daysBetween(updatedAt, now);
   if (age > 14) return "critical";
   if (age > 7) return "watch";
-  return "mute";
+  return "slate";
 }
