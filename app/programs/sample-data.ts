@@ -180,3 +180,278 @@ export const PROGRAMME_TYPES = [
   "Series",
   "Research",
 ];
+
+/* ===========================================================================
+   Programme detail. DESIGN.md section 6.2.
+
+   Same hard-coded stand-in as the list above. `onboarding: null` means
+   onboarding has not been generated yet, which is what puts the Onboarding tab
+   into its empty state and the generate gate from SPEC.md section 4.2 on
+   screen.
+   =========================================================================== */
+
+export type ResponseStatus =
+  | "not_started"
+  | "in_progress"
+  | "submitted"
+  | "approved"
+  | "blocked"
+  | "na";
+
+export type OnboardingField = {
+  id: string;
+  section: string;
+  question: string;
+  guidance?: string;
+  response: string;
+  /** The party responsible. Distinct from the assignee, who is a person. */
+  owner: "client" | "amzai" | "both";
+  /** Null shows as Unassigned and feeds the unassigned count. */
+  assignee: string | null;
+  dueOffset: number;
+  status: ResponseStatus;
+  blocking: boolean;
+  answeredBy?: { name: string; party: "client" | "amzai"; dayOffset: number };
+};
+
+export type TeamMember = {
+  name: string;
+  roleOnProgram: string;
+  allocationPercent: number;
+};
+
+export type AuditEntry = { dayOffset: number; text: string };
+
+export type ProgrammeDetail = {
+  approverName: string;
+  approverEmail: string;
+  nextMilestone: { label: string; dayOffset: number };
+  team: TeamMember[];
+  /** Null means onboarding has not been generated. */
+  onboarding: OnboardingField[] | null;
+  templateName: string;
+  audit: AuditEntry[];
+};
+
+const IDENTITY_ONBOARDING: OnboardingField[] = [
+  {
+    id: "f1",
+    section: "Audience",
+    question: "Which job titles should we target?",
+    guidance: "Seniority matters more than headcount. Be specific.",
+    response:
+      "CISO, Head of Identity, IAM Architect. Financial services and insurance only.",
+    owner: "client",
+    assignee: "Priya Raman",
+    dueOffset: -18,
+    status: "approved",
+    blocking: false,
+    answeredBy: { name: "Rachel Okonjo", party: "client", dayOffset: -19 },
+  },
+  {
+    id: "f2",
+    section: "Audience",
+    question: "Which companies are off limits?",
+    guidance: "Existing customers, live opportunities, competitors.",
+    response: "Full suppression list sent 4 August. 212 domains.",
+    owner: "client",
+    assignee: "Daniel Okoro",
+    dueOffset: -14,
+    status: "approved",
+    blocking: false,
+    answeredBy: { name: "Rachel Okonjo", party: "client", dayOffset: -15 },
+  },
+  {
+    id: "f3",
+    section: "Audience",
+    question: "Minimum company size?",
+    response: "",
+    owner: "client",
+    assignee: null,
+    dueOffset: -3,
+    status: "not_started",
+    blocking: false,
+  },
+  {
+    id: "f4",
+    section: "Content",
+    question: "Who is speaking, and what is their title?",
+    guidance: "Full name and title as they should appear on the invitation.",
+    response: "Confirmed: Dr Amara Nwosu, Chief Identity Architect.",
+    owner: "amzai",
+    assignee: "Priya Raman",
+    dueOffset: -6,
+    status: "approved",
+    blocking: false,
+    answeredBy: { name: "Priya Raman", party: "amzai", dayOffset: -7 },
+  },
+  {
+    id: "f5",
+    section: "Content",
+    question: "Three discussion questions for the roundtable",
+    response: "Draft with the client. Two agreed, third still open.",
+    owner: "both",
+    assignee: "Sana Iqbal",
+    dueOffset: -1,
+    status: "in_progress",
+    blocking: false,
+    answeredBy: { name: "Sana Iqbal", party: "amzai", dayOffset: -2 },
+  },
+  {
+    id: "f6",
+    section: "Content",
+    question: "Approved copy for the invitation email",
+    response: "",
+    owner: "client",
+    assignee: "Sana Iqbal",
+    dueOffset: -4,
+    status: "blocked",
+    blocking: true,
+  },
+  {
+    id: "f7",
+    section: "Logistics",
+    question: "Final attendee list",
+    guidance: "Names, titles and dietary requirements.",
+    response: "",
+    owner: "client",
+    assignee: "Daniel Okoro",
+    dueOffset: -2,
+    status: "submitted",
+    blocking: true,
+    answeredBy: { name: "Marcus Feld", party: "client", dayOffset: -2 },
+  },
+  {
+    id: "f8",
+    section: "Logistics",
+    question: "Venue and room set-up",
+    response: "The Ned, private dining room. Confirmed 1 August.",
+    owner: "amzai",
+    assignee: "Priya Raman",
+    dueOffset: -9,
+    status: "approved",
+    blocking: false,
+    answeredBy: { name: "Priya Raman", party: "amzai", dayOffset: -10 },
+  },
+  {
+    id: "f9",
+    section: "Logistics",
+    question: "Dietary requirements collected?",
+    response: "Not applicable for this format.",
+    owner: "amzai",
+    assignee: null,
+    dueOffset: 2,
+    status: "na",
+    blocking: false,
+  },
+];
+
+const LAW_FIRM_ONBOARDING: OnboardingField[] = [
+  {
+    id: "g1",
+    section: "Audience",
+    question: "Which practice areas are in scope?",
+    response: "Private client and family. Not corporate.",
+    owner: "client",
+    assignee: "Sana Iqbal",
+    dueOffset: -5,
+    status: "approved",
+    blocking: false,
+    answeredBy: { name: "Helena Vaughan", party: "client", dayOffset: -6 },
+  },
+  {
+    id: "g2",
+    section: "Audience",
+    question: "Target partner seniority",
+    response: "",
+    owner: "client",
+    assignee: null,
+    dueOffset: -1,
+    status: "blocked",
+    blocking: true,
+  },
+  {
+    id: "g3",
+    section: "Content",
+    question: "Signed-off briefing agenda",
+    response: "",
+    owner: "both",
+    assignee: "Sana Iqbal",
+    dueOffset: 1,
+    status: "not_started",
+    blocking: true,
+  },
+  {
+    id: "g4",
+    section: "Logistics",
+    question: "Confirmed date and venue",
+    response: "",
+    owner: "amzai",
+    assignee: "Sana Iqbal",
+    dueOffset: 3,
+    status: "in_progress",
+    blocking: true,
+  },
+];
+
+export const SAMPLE_DETAILS: Record<string, ProgrammeDetail> = {
+  "pr-1": {
+    approverName: "Rachel Okonjo",
+    approverEmail: "rachel.okonjo@kestrel.example",
+    nextMilestone: { label: "Invitations live", dayOffset: -2 },
+    team: [
+      { name: "Priya Raman", roleOnProgram: "delivery_lead", allocationPercent: 40 },
+      { name: "Daniel Okoro", roleOnProgram: "specialist", allocationPercent: 25 },
+      { name: "Sana Iqbal", roleOnProgram: "specialist", allocationPercent: 20 },
+    ],
+    onboarding: IDENTITY_ONBOARDING,
+    templateName: "B2B Tech event, v3",
+    audit: [
+      { dayOffset: -1, text: "Sana Iqbal changed Three discussion questions to In progress" },
+      { dayOffset: -2, text: "Marcus Feld submitted Final attendee list" },
+      { dayOffset: -4, text: "Priya Raman flagged Approved copy for the invitation email as Blocked" },
+      { dayOffset: -7, text: "Priya Raman approved Who is speaking, and what is their title?" },
+      { dayOffset: -10, text: "Priya Raman approved Venue and room set-up" },
+    ],
+  },
+  "pr-3": {
+    approverName: "Helena Vaughan",
+    approverEmail: "h.vaughan@bramwell.example",
+    nextMilestone: { label: "Onboarding due", dayOffset: 3 },
+    team: [
+      { name: "Sana Iqbal", roleOnProgram: "delivery_lead", allocationPercent: 30 },
+    ],
+    onboarding: LAW_FIRM_ONBOARDING,
+    templateName: "Law Firms event, v2",
+    audit: [
+      { dayOffset: -1, text: "Sana Iqbal set Target partner seniority to Blocked" },
+      { dayOffset: -3, text: "Sana Iqbal generated onboarding from Law Firms event, v2" },
+      { dayOffset: -3, text: "Sana Iqbal was assigned as delivery lead" },
+      { dayOffset: -4, text: "Helena Vaughan was added as a client contact" },
+      { dayOffset: -6, text: "Priya Raman created the programme" },
+    ],
+  },
+};
+
+/** Programmes with no team assigned. Generation is blocked. SPEC.md 4.2. */
+const NO_TEAM = new Set(["pr-6"]);
+
+export function detailFor(programme: Programme): ProgrammeDetail {
+  const known = SAMPLE_DETAILS[programme.id];
+  if (known) return known;
+
+  return {
+    approverName: "Not set",
+    approverEmail: "",
+    nextMilestone: { label: "Onboarding due", dayOffset: 7 },
+    team: NO_TEAM.has(programme.id)
+      ? []
+      : [{ name: programme.owner, roleOnProgram: "delivery_lead", allocationPercent: 30 }],
+    onboarding: null,
+    templateName: "B2B Tech event, v3",
+    audit: [
+      { dayOffset: -2, text: `${programme.owner} was assigned as delivery lead` },
+      { dayOffset: -5, text: "Priya Raman created the programme" },
+    ],
+  };
+}

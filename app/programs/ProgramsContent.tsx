@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { Countdown } from "@/components/Countdown";
@@ -53,6 +54,7 @@ function addDays(base: Date, days: number): string {
 
 export function ProgramsContent({ nowIso }: { nowIso: string }) {
   const now = new Date(nowIso);
+  const router = useRouter();
 
   const [vertical, setVertical] = useState<VerticalId | "all">("all");
   const [subVertical, setSubVertical] = useState<string | "all">("all");
@@ -404,7 +406,10 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
           defaultSort={{ key: "countdown", direction: "asc" }}
           layout="fixed"
           selectedKey={opened}
-          onRowClick={(row) => setOpened(row.id)}
+          onRowClick={(row) => {
+            setOpened(row.id);
+            router.push(`/programs/${row.id}`);
+          }}
           filters={filters}
           activeFilterCount={activeFilterCount}
           onClearFilters={clearFilters}
@@ -413,8 +418,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       </div>
 
       <p className="mt-3 text-caption text-slate">
-        Sample data, not a database. Clicking a row selects it; the programme
-        detail screen does not exist yet.
+        Sample data, not a database. Click a row to open the programme.
       </p>
     </main>
   );
