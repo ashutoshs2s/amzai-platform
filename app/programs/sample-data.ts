@@ -24,7 +24,7 @@ export type Programme = {
   id: string;
   name: string;
   vertical: VerticalId;
-  /** Null for Law Firms, which is not subdivided. */
+  /** Slug, not a label. Null for Law Firms, which is not subdivided. */
   subVertical: string | null;
   type: "Event" | "Retainer" | "Dedicated team" | "Series" | "Research";
   owner: string;
@@ -50,7 +50,7 @@ export const SAMPLE_PROGRAMMES: Programme[] = [
     id: "pr-1",
     name: "Identity Governance Leadership Forum",
     vertical: "b2b_tech",
-    subVertical: "Identity & Access",
+    subVertical: "identity_access",
     type: "Event",
     owner: "Priya Raman",
     blocking: 2,
@@ -65,7 +65,7 @@ export const SAMPLE_PROGRAMMES: Programme[] = [
     id: "pr-2",
     name: "Cloud Cost Control Executive Dinner",
     vertical: "b2b_tech",
-    subVertical: "Cloud & Infrastructure",
+    subVertical: "cloud_infrastructure",
     type: "Event",
     owner: "Daniel Okoro",
     blocking: 1,
@@ -95,7 +95,7 @@ export const SAMPLE_PROGRAMMES: Programme[] = [
     id: "pr-4",
     name: "Exhibitor Acquisition Series",
     vertical: "conference_organizers",
-    subVertical: "Trade Show Organizers",
+    subVertical: "trade_show_organizers",
     type: "Series",
     owner: "Daniel Okoro",
     blocking: 1,
@@ -110,7 +110,7 @@ export const SAMPLE_PROGRAMMES: Programme[] = [
     id: "pr-5",
     name: "Managed Detection Demand Programme",
     vertical: "b2b_tech",
-    subVertical: "Cybersecurity",
+    subVertical: "cybersecurity",
     type: "Retainer",
     owner: "Tom Whitfield",
     blocking: 0,
@@ -131,7 +131,7 @@ export const SAMPLE_PROGRAMMES: Programme[] = [
     id: "pr-6",
     name: "Data Platform Buyer Intelligence",
     vertical: "b2b_tech",
-    subVertical: "Data & Analytics",
+    subVertical: "data_analytics",
     type: "Event",
     owner: "Priya Raman",
     blocking: 0,
@@ -146,7 +146,7 @@ export const SAMPLE_PROGRAMMES: Programme[] = [
     id: "pr-7",
     name: "Membership Growth Dedicated Team",
     vertical: "conference_organizers",
-    subVertical: "Associations",
+    subVertical: "associations",
     type: "Dedicated team",
     owner: "Ana Beltrán",
     blocking: 0,

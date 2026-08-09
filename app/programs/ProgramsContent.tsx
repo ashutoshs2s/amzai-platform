@@ -10,6 +10,7 @@ import {
   NO_SUB_VERTICAL,
   type VerticalId,
   VERTICALS,
+  subVerticalLabel,
   subVerticalOptions,
   verticalLabel,
 } from "@/lib/verticals";
@@ -72,7 +73,8 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
    */
   function changeVertical(next: VerticalId | "all") {
     setVertical(next);
-    if (subVertical !== "all" && !subVerticalOptions(next).includes(subVertical)) {
+    const stillValid = subVerticalOptions(next).some((entry) => entry.slug === subVertical);
+    if (subVertical !== "all" && !stillValid) {
       setSubVertical("all");
     }
   }
@@ -158,7 +160,8 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       truncate: true,
       cell: (row) =>
         row.subVertical ? (
-          <span className="text-slate">{row.subVertical}</span>
+          // Slug is stored; the label comes from lib/verticals.ts.
+          <span className="text-slate">{subVerticalLabel(row.subVertical)}</span>
         ) : (
           // A dash, not a blank. Blank reads as missing; a dash reads as
           // deliberately not applicable.
@@ -166,7 +169,8 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
             {NO_SUB_VERTICAL}
           </span>
         ),
-      sortValue: (row) => row.subVertical ?? "",
+      // Sorted by what the reader sees, not by the stored slug.
+      sortValue: (row) => subVerticalLabel(row.subVertical) ?? "",
     },
     {
       key: "type",
@@ -285,8 +289,8 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
           <>
             <option value="all">All sub-verticals</option>
             {availableSubVerticals.map((entry) => (
-              <option key={entry} value={entry}>
-                {entry}
+              <option key={entry.slug} value={entry.slug}>
+                {entry.label}
               </option>
             ))}
           </>

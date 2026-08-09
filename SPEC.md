@@ -44,13 +44,33 @@ Build only these tables first.
 
 **Vertical and sub-vertical** replace the flat `industry` list. Two levels, because the old list mixed one dimension with another: `law_firm` and `b2b_tech` were markets, while `association`, `amc`, `trade_show` and `b2b_media` were all kinds of conference organiser. The rendering rules are in DESIGN.md section 6.1; the values are:
 
-| Vertical | Sub-verticals |
-|---|---|
-| `b2b_tech` | Cybersecurity, Identity & Access, Cloud & Infrastructure, Data & Analytics, AI & ML, DevOps & Engineering, Networking, Observability, Storage & Backup, FinTech, MarTech, HR Tech, Supply Chain Tech, Healthcare Tech, ERP & Business Applications, Customer Experience |
-| `conference_organizers` | Associations, AMCs, B2B Media, Trade Show Organizers |
-| `law_firms` | none |
+**Both columns store slugs. Labels are never stored.** `lib/verticals.ts` is the single source for display text, so renaming a sub-vertical is a one-line change there rather than an UPDATE across every organisation row, and both columns follow one convention.
 
-`sub_vertical` is null for every Law Firms organisation, and a check constraint enforces both halves of that: null when the vertical is `law_firms`, and otherwise one of the values listed for that vertical. A sub-vertical belonging to the wrong vertical is not a display bug, it is a mis-filed client, so the database refuses it rather than the interface hiding it.
+| Vertical | Sub-vertical slugs | Displayed as |
+|---|---|---|
+| `b2b_tech` | `cybersecurity` | Cybersecurity |
+| | `identity_access` | Identity & Access |
+| | `cloud_infrastructure` | Cloud & Infrastructure |
+| | `data_analytics` | Data & Analytics |
+| | `ai_ml` | AI & ML |
+| | `devops_engineering` | DevOps & Engineering |
+| | `networking` | Networking |
+| | `observability` | Observability |
+| | `storage_backup` | Storage & Backup |
+| | `fintech` | FinTech |
+| | `martech` | MarTech |
+| | `hr_tech` | HR Tech |
+| | `supply_chain_tech` | Supply Chain Tech |
+| | `healthcare_tech` | Healthcare Tech |
+| | `erp_business_applications` | ERP & Business Applications |
+| | `customer_experience` | Customer Experience |
+| `conference_organizers` | `associations` | Associations |
+| | `amcs` | AMCs |
+| | `b2b_media` | B2B Media |
+| | `trade_show_organizers` | Trade Show Organizers |
+| `law_firms` | none | em dash |
+
+`sub_vertical` is null for every Law Firms organisation, and a check constraint enforces both halves of that: null when the vertical is `law_firms`, and otherwise one of the slugs listed for that vertical. A sub-vertical belonging to the wrong vertical is not a display bug, it is a mis-filed client, so the database refuses it rather than the interface hiding it.
 
 `slug` is lowercase and hyphenated, generated from `name` on creation and editable afterwards. It appears in every client-facing URL. Once the first client-facing link for any programme of this organisation has been generated, `slug_locked_at` is stamped and the slug can no longer be changed, because links already sent would break. Slugs are readability only and are never an access control.
 
