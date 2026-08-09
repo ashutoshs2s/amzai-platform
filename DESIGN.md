@@ -310,6 +310,8 @@ Leftover space is distributed across all columns in proportion, never dumped int
 
 They are **controls and must look like controls** — a hairline border, a hover state, and a filled `--accent-sub` pressed state. Rendered as plain text they read as a caption describing the table rather than four things you can press, and nobody presses them. This is not a licence for KPI tiles: no large numerals, no trend arrows, no drop shadow, 36px high and no taller.
 
+**The counts outrank the filter row.** They do different jobs — the counts are how you find the thing that needs you, the filters are how you narrow what you already found — so they must not read at the same weight. The counts sit at 36px on `--surface`, matching the row height of the table they act on. The filter cluster sits at 32px on `--canvas`, so it recedes against the white table below it. Two rows of identical bordered controls read as one long toolbar and neither gets used.
+
 At risk and Blocked carry their status colour on the number when above zero, `--watch` and `--critical` respectively. At zero every number is `--slate`. The word beside the number is always there, so the colour is never doing the work alone.
 
 ### 6.2 Program detail

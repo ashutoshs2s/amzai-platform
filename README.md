@@ -26,7 +26,7 @@ You need Node 20 or newer. Check with `node --version`.
    npm run dev
    ```
 
-4. Open <http://localhost:3000>. The page lists the three environment variables and whether each is set. It never shows their values.
+4. Open <http://localhost:3000>. It opens the programme list. The environment check, which lists the three variables and whether each is set without ever showing their values, is at <http://localhost:3000/health>.
 
 Stop the server with `Ctrl` and `C` in the same terminal.
 

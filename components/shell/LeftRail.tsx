@@ -26,7 +26,7 @@ export function LeftRail({ currentHref }: { currentHref?: string }) {
         </span>
       </div>
 
-      <nav aria-label="Modules" className="flex flex-col py-2">
+      <nav aria-label="Modules" className="flex flex-col pb-2">
         {MODULES.map((module) => {
           const isCurrent = module.href !== undefined && module.href === currentHref;
 
@@ -36,9 +36,8 @@ export function LeftRail({ currentHref }: { currentHref?: string }) {
                 key={module.order}
                 aria-disabled="true"
                 title={module.note}
-                className="flex cursor-not-allowed items-baseline gap-2 border-l-2 border-l-transparent px-4 py-2 text-body text-mute"
+                className="flex cursor-not-allowed items-baseline border-l-[3px] border-l-transparent px-4 py-2 text-body text-mute"
               >
-                <span className="font-time text-caption">{module.order}</span>
                 {module.name}
               </span>
             );
@@ -49,13 +48,12 @@ export function LeftRail({ currentHref }: { currentHref?: string }) {
               key={module.order}
               href={module.href}
               aria-current={isCurrent ? "page" : undefined}
-              className={`flex items-baseline gap-2 border-l-2 px-4 py-2 text-body ${
+              className={`flex items-baseline border-l-[3px] px-4 py-2 text-body ${
                 isCurrent
                   ? "border-l-accent font-medium text-ink"
                   : "border-l-transparent text-slate hover:text-ink"
               }`}
             >
-              <span className="font-time text-caption">{module.order}</span>
               {module.name}
             </Link>
           );

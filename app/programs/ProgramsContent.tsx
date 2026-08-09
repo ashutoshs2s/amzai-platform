@@ -139,7 +139,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       header: "Program",
       // Capped, so the name cannot absorb the table and push the countdown to
       // the far edge. The full name stays reachable on hover.
-      width: "280px",
+      width: "200px",
       truncate: true,
       cell: (row) => (
         <span className="font-medium text-ink" title={row.name}>
@@ -151,14 +151,19 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "vertical",
       header: "Vertical",
-      width: "140px",
-      cell: (row) => <span className="text-slate">{verticalLabel(row.vertical)}</span>,
+      width: "160px",
+      truncate: true,
+      cell: (row) => (
+        <span className="text-slate" title={verticalLabel(row.vertical)}>
+          {verticalLabel(row.vertical)}
+        </span>
+      ),
       sortValue: (row) => verticalLabel(row.vertical),
     },
     {
       key: "subVertical",
       header: "Sub-vertical",
-      width: "150px",
+      width: "165px",
       truncate: true,
       cell: (row) =>
         row.subVertical ? (
@@ -177,15 +182,18 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "type",
       header: "Type",
-      width: "100px",
-      cell: (row) => <span className="text-slate">{row.type}</span>,
+      width: "120px",
+      truncate: true,
+      cell: (row) => (
+        <span className="text-slate" title={row.type}>{row.type}</span>
+      ),
       sortValue: (row) => row.type,
     },
     {
       key: "countdown",
       header: "Countdown",
       align: "right",
-      width: "175px",
+      width: "195px",
       cell: (row) =>
         row.time.kind === "event" ? (
           <Countdown
@@ -209,7 +217,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "owner",
       header: "Owner",
-      width: "130px",
+      width: "120px",
       truncate: true,
       cell: (row) => (
         <span className="text-slate" title={row.owner}>
@@ -243,7 +251,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       header: "Status",
       // Sized to its content like every other column. The table ends here
       // rather than stretching, so there is no slack to absorb.
-      width: "110px",
+      width: "125px",
       cell: (row) => <StatusPill status={row.status} />,
       sortValue: (row) => row.status,
     },
@@ -254,7 +262,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     the dividers; each control is bare inside it. DESIGN.md section 5.
   */
   const filters = (
-    <div className="inline-flex flex-wrap items-center divide-x divide-line overflow-hidden rounded-base border border-line bg-surface">
+    <div className="inline-flex flex-wrap items-center divide-x divide-line overflow-hidden rounded-base border border-line bg-canvas">
       <Select
         bare
         className="w-[120px]"
@@ -364,7 +372,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
         numerals, no trend arrows, no shadow. A programme can appear in more
         than one, so these will not sum to the row count.
       */}
-      <div className="mt-4 flex flex-wrap items-center gap-1">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {countValues.map((count) => {
           const isActive = countFilter === count.id;
           const carriesStatus = count.value > 0 && count.tone !== undefined;
@@ -374,7 +382,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
               type="button"
               aria-pressed={isActive}
               onClick={() => setCountFilter(isActive ? null : count.id)}
-              className={`inline-flex h-8 items-center gap-2 rounded-base border px-2 transition-colors ${
+              className={`inline-flex h-9 items-center gap-2 rounded-base border px-3 transition-colors ${
                 isActive
                   ? "border-accent bg-accent-sub text-ink"
                   : "border-line bg-surface text-ink hover:bg-canvas"
@@ -397,7 +405,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
         })}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-6">
         <DataTable
           columns={columns}
           rows={rows}
