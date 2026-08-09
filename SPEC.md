@@ -25,7 +25,7 @@ That session is built in our own tables. It is not Supabase Auth and it creates 
 Build in this order. Finish and verify each before starting the next.
 
 1. **Clients and Programs.** The spine. Organisations, programmes, users, assignments. Includes the creation sequence in section 4, which module 2 depends on.
-2. **Onboarding.** Templated question sets per programme type and industry. Every field has an owner, due date, status and blocking flag. Completed onboarding generates the task set. Includes the client-completed onboarding form on `client.amzai.events`: Amzai generates a link per programme and emails it to named client contacts, who answer their own fields directly. Answers save as they go and need not be finished in one sitting.
+2. **Onboarding.** Templated question sets per programme type and vertical. Every field has an owner, due date, status and blocking flag. Completed onboarding generates the task set. Includes the client-completed onboarding form on `client.amzai.events`: Amzai generates a link per programme and emails it to named client contacts, who answer their own fields directly. Answers save as they go and need not be finished in one sitting.
 3. **Delivery Operations.** Task engine from templates, portfolio calendar, attendee tracking, risk flags with numeric triggers.
 4. **Client Dashboards.** Generated per programme, token URL, no login.
 5. **Audience and Data Ops.** Master contact database, engagement history, consent, suppression.
@@ -40,7 +40,17 @@ An intelligence layer using the Claude API comes last, after modules 1 to 6 hold
 Build only these tables first.
 
 ### organisations
-`id` uuid pk · `name` text · `trading_name` text · `slug` text unique not null · `slug_locked_at` timestamptz nullable · `industry` text (law_firm, association, amc, trade_show, b2b_media, b2b_tech) · `status` text (prospect, active, dormant, closed) · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `name` text · `trading_name` text · `slug` text unique not null · `slug_locked_at` timestamptz nullable · `vertical` text (b2b_tech, law_firms, conference_organizers) · `sub_vertical` text nullable · `status` text (prospect, active, dormant, closed) · `created_at`, `updated_at` timestamptz
+
+**Vertical and sub-vertical** replace the flat `industry` list. Two levels, because the old list mixed one dimension with another: `law_firm` and `b2b_tech` were markets, while `association`, `amc`, `trade_show` and `b2b_media` were all kinds of conference organiser. The rendering rules are in DESIGN.md section 6.1; the values are:
+
+| Vertical | Sub-verticals |
+|---|---|
+| `b2b_tech` | Cybersecurity, Identity & Access, Cloud & Infrastructure, Data & Analytics, AI & ML, DevOps & Engineering, Networking, Observability, Storage & Backup, FinTech, MarTech, HR Tech, Supply Chain Tech, Healthcare Tech, ERP & Business Applications, Customer Experience |
+| `conference_organizers` | Associations, AMCs, B2B Media, Trade Show Organizers |
+| `law_firms` | none |
+
+`sub_vertical` is null for every Law Firms organisation, and a check constraint enforces both halves of that: null when the vertical is `law_firms`, and otherwise one of the values listed for that vertical. A sub-vertical belonging to the wrong vertical is not a display bug, it is a mis-filed client, so the database refuses it rather than the interface hiding it.
 
 `slug` is lowercase and hyphenated, generated from `name` on creation and editable afterwards. It appears in every client-facing URL. Once the first client-facing link for any programme of this organisation has been generated, `slug_locked_at` is stamped and the slug can no longer be changed, because links already sent would break. Slugs are readability only and are never an access control.
 
@@ -80,7 +90,17 @@ Unique on (`program_id`, `role_on_program`). One answer per role per programme.
 `resolved_by` and `resolved_at` name who decided and when. Every write here also writes an audit row.
 
 ### onboarding_templates
-`id` uuid pk · `name` text · `program_type` text · `industry` text nullable, null means applies to all · `version` integer · `active` boolean · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `name` text · `program_type` text · `vertical` text nullable · `sub_vertical` text nullable · `version` integer · `active` boolean · `created_at`, `updated_at` timestamptz
+
+Both `vertical` and `sub_vertical` are nullable, and null means "applies to anything at this level".
+
+- `vertical` null: applies to every vertical. The generic template for a programme type.
+- `vertical` set, `sub_vertical` null: applies to that whole vertical. **One B2B Tech template covers all sixteen sub-verticals**, which is the normal case.
+- Both set: applies to that sub-vertical only. Added sparingly, where the questions genuinely differ, and it takes precedence over the vertical-level template.
+
+`sub_vertical` set with `vertical` null is meaningless and is rejected by a check constraint: a sub-vertical only has meaning inside its vertical.
+
+The point of the hierarchy is that adding the sixteenth B2B Tech sub-vertical should not mean writing a sixteenth template. Write one, and specialise only where a real difference in the questions justifies a second.
 
 ### onboarding_template_fields
 `id` uuid pk · `template_id` uuid fk · `section` text · `sort_order` integer · `question` text · `guidance` text · `default_owner` text (client, amzai, both) · `default_assignee_role` text nullable (engagement_lead, delivery_lead, specialist, data_ops) · `default_offset_type` text (weeks_from_start, days_before_milestone) · `default_offset_value` integer · `blocking` boolean · `created_at`, `updated_at` timestamptz
@@ -133,6 +153,8 @@ Scoped to one programme. Life is seven days, so a client can return over several
 ### companies
 `id` uuid pk · `name`, `domain` text · `revenue_band`, `employee_band`, `industry`, `country` text · `signals` jsonb · `created_at`, `updated_at` timestamptz
 
+`companies.industry` is **not** the vertical taxonomy and is deliberately left as it is. These are the target companies we market to on a client's behalf, described however the data source described them. `organisations.vertical` classifies Amzai's own clients. Two different populations, two different vocabularies; do not unify them.
+
 ### contacts
 `id` uuid pk · `company_id` uuid fk · `first_name`, `last_name`, `email`, `title`, `seniority`, `function` text · `country` text · `consent_basis` text · `source` text · `suppressed` boolean · `suppressed_at` timestamptz · `suppressed_reason` text · `created_at`, `updated_at` timestamptz
 
@@ -162,19 +184,24 @@ Not every audit row comes from a table write. Reads of a client-facing surface a
 
 The order matters, and it is not a suggestion. Done out of order, a programme generates with every onboarding field unassigned, and the awaiting-me count that drives the whole platform reads zero for everyone from day one.
 
-1. **Create the organisation**, including its industry.
+1. **Create the organisation**, including its vertical and, where the vertical has them, its sub-vertical.
 2. **Create the programme**, including its type and dates.
 3. **Assign the Amzai team** in `program_assignments`, each with a `role_on_program`.
 4. **Generate onboarding.**
 
 ### 4.1 Selecting the template
 
-The organisation's industry and the programme's type select the template. No one types a template name.
+The organisation's vertical and sub-vertical, together with the programme's type, select the template. No one types a template name.
 
-- Match on `program_type` and `industry`.
-- If no industry-specific template exists, fall back to the one for that `program_type` where `industry` is null.
-- Only `active` templates are candidates.
-- Where more than one still matches, the highest `version` wins.
+`program_type` must always match. Within that, the most specific match wins, in this order:
+
+1. **Exact sub-vertical.** `vertical` and `sub_vertical` both match the organisation.
+2. **Vertical.** `vertical` matches and `sub_vertical` is null.
+3. **Generic.** Both are null.
+
+Only `active` templates are candidates. Where more than one still matches at the same level, the highest `version` wins. Selection stops at the first level that yields a candidate: a sub-vertical template beats a vertical one even if the vertical one has a higher version number, because specificity is the stronger signal.
+
+An organisation whose vertical is `law_firms` has no sub-vertical, so level 1 never applies to it and selection starts at level 2.
 
 The admin sees which template was selected before generating, and may override it with any other active template. Once generated, the choice is recorded on `programs.onboarding_template_id` and does not change.
 
