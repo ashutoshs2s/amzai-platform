@@ -152,6 +152,12 @@ begin
     jsonb_build_object('area','views','who','specialist','scenario','restricted view returns no rows to a non data_ops role',
       'sql','select count(*)::text from public.organisations_restricted where name like ''ZZ Test%''','expect','0'),
 
+    -- advisor regressions: one policy per action, no bare auth.uid() in a policy
+    jsonb_build_object('area','policies','who','admin','scenario','no action is covered by two permissive policies',
+      'sql','with e as (select tablename, unnest(case cmd when ''ALL'' then array[''SELECT'',''INSERT'',''UPDATE'',''DELETE''] else array[cmd] end) a from pg_policies where schemaname=''public'' and permissive=''PERMISSIVE'') select count(*)::text from (select tablename, a from e group by 1,2 having count(*) > 1) x','expect','0'),
+    jsonb_build_object('area','policies','who','admin','scenario','no policy calls auth.uid() outside a scalar subquery',
+      'sql','select count(*)::text from pg_policies where schemaname=''public'' and (coalesce(qual,'''') ~ ''auth[.]uid'' or coalesce(with_check,'''') ~ ''auth[.]uid'') and (coalesce(qual,'''')||coalesce(with_check,'''')) !~ ''SELECT auth[.]uid''','expect','0'),
+
     -- audit visibility
     jsonb_build_object('area','audit','who','admin','scenario','admin can read audit_events',
       'sql','select case when count(*) >= 0 then ''readable'' end from public.audit_events','expect','readable'),
