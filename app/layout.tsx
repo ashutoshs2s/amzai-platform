@@ -1,10 +1,25 @@
 import type { Metadata } from "next";
+import { IBM_Plex_Mono, Inter } from "next/font/google";
+
 import "./globals.css";
 
-// Fonts are deliberately not loaded yet. DESIGN.md section 3 calls for Inter
-// and IBM Plex Mono, and they get set up with the design tokens in the next
-// step. create-next-app's Geist fonts have been removed rather than left to
-// linger.
+// DESIGN.md section 3. Inter for the interface, IBM Plex Mono for time and
+// quantity. Loaded through next/font so they are self-hosted and there is no
+// request to Google at run time.
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+// Plex Mono is not a variable font, so the weights we use are listed. 400 for
+// time and counts, 500 for large metrics.
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-plex-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Amzai Operations",
@@ -13,7 +28,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en-GB" className="h-full antialiased">
+    <html
+      lang="en-GB"
+      className={`${inter.variable} ${plexMono.variable} h-full antialiased`}
+    >
       <body className="min-h-full">{children}</body>
     </html>
   );

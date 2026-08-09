@@ -1,11 +1,136 @@
 @import "tailwindcss";
 
-/*
-  Design tokens from DESIGN.md section 3 are not set up yet. That is the next
-  step, and it will replace this file. Nothing is defined here on purpose, so
-  there is nothing to unpick when the real token set arrives.
+/* ===========================================================================
+   DESIGN.md section 3. Tokens.
 
-  Note for later: create-next-app generates a `prefers-color-scheme: dark`
-  block here by default. It has been removed. DESIGN.md section 8 rules dark
-  mode out of scope, and a half-built dark mode is worse than none.
+   The raw values live here under exactly the names DESIGN.md gives them, so
+   this block can be read against the spec line by line. The @theme block below
+   exposes them to Tailwind as utility classes. Change a value here and it
+   changes everywhere; never hard-code a colour in a component.
+   =========================================================================== */
+
+:root {
+  /* Neutrals carry the interface. */
+  --ink: #14161a; /* primary text, headers */
+  --slate: #5b6270; /* secondary text, labels */
+  --mute: #8b92a0; /* tertiary, placeholder, disabled */
+  --line: #e3e5e9; /* borders, dividers, table rules */
+  --surface: #ffffff; /* cards, tables, panels */
+  --canvas: #f7f8fa; /* page background */
+  --accent: #1f5f5b; /* interactive: links, primary buttons, focus */
+  --accent-sub: #e8f1f0; /* accent background wash, selected rows */
+
+  /* Colour carries meaning only. These are for status and nothing else. */
+  --clear: #157347; /* on track, approved, confirmed */
+  --clear-bg: #e9f5ee;
+  --watch: #b26b00; /* at risk, due soon, awaiting */
+  --watch-bg: #fdf3e3;
+  --critical: #b3261e; /* blocking, overdue, failed */
+  --critical-bg: #fbeae9;
+  --idle: #5b6270; /* not started, N/A, complete */
+  --idle-bg: #f0f1f4;
+
+  /* Shape. 4px base unit; use 4, 8, 12, 16, 24, 32, 48 only. */
+  --radius: 4px; /* everything. no exceptions */
+  --row-height: 36px; /* table rows */
+  --rail-width: 220px;
+  --topbar: 52px;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-slate: var(--slate);
+  --color-mute: var(--mute);
+  --color-line: var(--line);
+  --color-surface: var(--surface);
+  --color-canvas: var(--canvas);
+  --color-accent: var(--accent);
+  --color-accent-sub: var(--accent-sub);
+
+  --color-clear: var(--clear);
+  --color-clear-bg: var(--clear-bg);
+  --color-watch: var(--watch);
+  --color-watch-bg: var(--watch-bg);
+  --color-critical: var(--critical);
+  --color-critical-bg: var(--critical-bg);
+  --color-idle: var(--idle);
+  --color-idle-bg: var(--idle-bg);
+
+  /* Section 2. Time is set in monospace. Nothing else is. */
+  --font-ui: var(--font-inter), system-ui, sans-serif;
+  --font-time: var(--font-plex-mono), ui-monospace, monospace;
+
+  /* Section 3, type scale. */
+  --text-page-title: 20px;
+  --text-page-title--line-height: 1.3;
+  --text-section: 13px;
+  --text-section--line-height: 1.4;
+  --text-body: 13px;
+  --text-body--line-height: 1.5;
+  --text-table-header: 12px;
+  --text-table-header--line-height: 1.4;
+  --text-label: 12px;
+  --text-label--line-height: 1.4;
+  --text-metric: 28px;
+  --text-metric--line-height: 1.15;
+  --text-caption: 11px;
+  --text-caption--line-height: 1.4;
+
+  --radius-base: var(--radius);
+
+  --spacing-row: var(--row-height);
+  --spacing-rail: var(--rail-width);
+  --spacing-topbar: var(--topbar);
+
+  /* The only shadow in the system. Dropdowns and modals, nowhere else. */
+  --shadow-overlay: 0 4px 12px rgba(20, 22, 26, 0.08);
+}
+
+/* ===========================================================================
+   Base
+   =========================================================================== */
+
+html {
+  font-family: var(--font-ui);
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/*
+  Section 3: "Set font-variant-numeric: tabular-nums globally on the mono face."
+  This rides along with the font-time utility so the two can never be separated.
+  Any element set in the mono face gets tabular figures, without being asked.
 */
+.font-time {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+  Section 7: visible focus ring on every interactive element, 2px accent.
+  Applied globally rather than per component so nothing can be missed.
+*/
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Section 7: transitions capped at 150ms regardless. */
+* {
+  transition-duration: 150ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
