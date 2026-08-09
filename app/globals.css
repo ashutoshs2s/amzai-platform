@@ -94,6 +94,12 @@
     12px for Montserrat's width; the mono face did not change and stays at 13px,
     where it sits level with Montserrat 12px on the same row.
   */
+  /*
+    The content of a record, as distinct from the labels describing it. One
+    step above body so an answer outweighs the metadata around it.
+  */
+  --text-answer: 13px;
+  --text-answer--line-height: 1.55;
   --text-time: 13px;
   --text-time--line-height: 1.4;
   --text-metric: 28px;

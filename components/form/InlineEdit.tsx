@@ -23,6 +23,12 @@ export type InlineEditProps = {
   mono?: boolean;
   multiline?: boolean;
   placeholder?: string;
+  /**
+   * Type role for the value itself. Defaults to body. A record's answer uses
+   * `text-answer`, which is a step larger, so the value outweighs the metadata
+   * describing it. DESIGN.md section 3.
+   */
+  textClass?: string;
   className?: string;
 };
 
@@ -35,6 +41,7 @@ export function InlineEdit({
   mono = false,
   multiline = false,
   placeholder = "Not set",
+  textClass = "text-body",
   className = "",
 }: InlineEditProps) {
   const [state, setState] = useState<State>("idle");
@@ -80,7 +87,7 @@ export function InlineEdit({
             setState("editing");
           }}
           aria-label={`${ariaLabel}. Click to edit.`}
-          className={`rounded-base text-left text-body hover:underline hover:underline-offset-2 ${
+          className={`rounded-base text-left ${textClass} hover:underline hover:underline-offset-2 ${
             mono ? "font-time" : ""
           } ${value ? "text-ink" : "text-mute"}`}
         >
@@ -111,7 +118,7 @@ export function InlineEdit({
         }
       }}
       disabled={state === "saving"}
-      className="min-h-16 w-full rounded-base border border-accent bg-surface px-2 py-1 text-body text-ink"
+      className={`min-h-16 w-full rounded-base border border-accent bg-surface px-2 py-1 text-ink ${textClass}`}
     />
   ) : (
     <input
@@ -133,7 +140,7 @@ export function InlineEdit({
         }
       }}
       disabled={state === "saving"}
-      className={`h-8 w-full rounded-base border border-accent bg-surface px-2 text-body text-ink ${
+      className={`h-8 w-full rounded-base border border-accent bg-surface px-2 text-ink ${textClass} ${
         mono ? "font-time" : ""
       }`}
     />

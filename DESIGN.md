@@ -99,12 +99,17 @@ Both are free on Google Fonts and self-hosted through `next/font`, so nothing is
 | Page title | 20px | 600 | One per screen |
 | Section heading | 13px | 500 | Sentence case, ink. The default |
 | Section heading, emphatic | 13px | 600 | Uppercase, 0.04em tracking, slate. At most once per screen |
+| Answer, record value | 13px | 400 | Ink. The content of a record |
 | Body and table cell | 12px | 400 | −0.01em tracking in table cells only |
 | Table header | 11px | 500 | Slate, uppercase, 0.04em |
 | Label | 12px | 500 | Slate |
 | Metric, large | 28px | 500 | Mono, tabular figures |
 | Time and count | 13px | 400 | Mono, tabular figures |
 | Caption | 11px | 400 | Slate |
+
+**An answer outweighs its metadata.** On a record, the value is the content and everything else — the question, the status, the due date, the owner — describes it. Set the value one step above body at 13px ink, and the describing metadata one step below at 11px slate. A card where the answer is the quietest thing on it is a card nobody can read at a glance.
+
+The one exception is attribution. `Answered by Priya Raman · 12 Aug` stays as prominent as the rest of the metadata and is never reduced further: on the onboarding module, who said a thing and when is not a detail about the record, it is the record.
 
 **Montserrat runs wide.** It is a geometric face with a large x-height, so it sets noticeably wider than Inter at the same nominal size. Two adjustments hold the density this product needs:
 
@@ -211,7 +216,9 @@ The gate is a real date on the programme, not a computed halfway point. A progra
 
 The platform's central concept and it must never be a status among statuses.
 
-Anywhere a record has open blocking items, show a persistent bar at the top of that record: `--critical-bg` fill, `--critical` left border 3px, one line of text naming the count and the oldest item, and a link that filters to them. It does not collapse and it does not dismiss. It disappears when the items are cleared and not before.
+Anywhere a record has open blocking items, show a persistent bar at the top of that record: `--critical-bg` fill, `--critical` left border 3px, one line of text naming the count and the oldest item, and a link that filters to them.
+
+The named item is itself a link. Naming the oldest blocking item and then making the reader go and find it wastes the one piece of navigation the bar was in a position to give them. Clicking it clears any active filter, scrolls the field into view and marks it with the selected-row treatment from the table rules for a couple of seconds, so the eye lands on the right row rather than roughly the right area. It does not collapse and it does not dismiss. It disappears when the items are cleared and not before.
 
 ### Empty, loading, error
 
@@ -245,6 +252,7 @@ Disabled buttons drop to 40% opacity and are always accompanied by a line of tex
 - Label above field, 12px slate. Never placeholder-as-label.
 - 32px field height, 1px `--line` border, 4px radius, accent border on focus with a visible 2px focus ring.
 - Inline editing in tables and record views: click to edit, save on blur, show a brief `Saved` in clear for 2 seconds. No modal for single-field edits.
+- A select whose value is mostly read rather than changed renders as plain text and reveals its border and chevron on hover or focus. Ten bordered dropdowns down a record view read as a form to be filled in; the record is mostly there to be read. It stays a real `select`, so it is still tabbable and still shows the focus ring.
 - Destructive actions require typed confirmation, not just a second click.
 
 ---

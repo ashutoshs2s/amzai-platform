@@ -23,6 +23,12 @@ export type BlockingBarProps = {
   /** Filters the record's list to the blocking items. */
   onShow?: () => void;
   showLabel?: string;
+  /**
+   * Opens the named item itself. Naming the oldest blocking item and then
+   * making the reader go and find it wastes the one piece of navigation this
+   * bar was in a position to give them. DESIGN.md section 5.
+   */
+  onOpenOldest?: () => void;
   /** Wording aimed at a client rather than an operator. See DESIGN.md 6.4. */
   audience?: "internal" | "client";
   className?: string;
@@ -34,6 +40,7 @@ export function BlockingBar({
   oldestDueDate,
   onShow,
   showLabel = "Show blocking items",
+  onOpenOldest,
   audience = "internal",
   className = "",
 }: BlockingBarProps) {
@@ -58,7 +65,18 @@ export function BlockingBar({
         <span className="font-time">{count}</span> {tail}
       </span>
       <span className="text-slate">
-        Oldest: {oldestLabel}
+        Oldest:{" "}
+        {onOpenOldest ? (
+          <button
+            type="button"
+            onClick={onOpenOldest}
+            className="rounded-base font-medium text-accent underline underline-offset-2"
+          >
+            {oldestLabel}
+          </button>
+        ) : (
+          oldestLabel
+        )}
         {oldestDueDate && (
           <>
             , due <span className="font-time">{formatDayMonth(oldestDueDate)}</span>

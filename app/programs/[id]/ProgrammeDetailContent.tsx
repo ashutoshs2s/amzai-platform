@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BlockingBar } from "@/components/BlockingBar";
 import { Button } from "@/components/Button";
@@ -80,6 +80,41 @@ export function ProgrammeDetailContent({
   const [reassignFrom, setReassignFrom] = useState("");
   const [reassignTo, setReassignTo] = useState("");
   const [filter, setFilter] = useState<"all" | "blocking" | "unassigned">("all");
+  // A nonce alongside the id, so revealing the same field twice still scrolls.
+  const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
+  const highlightId = highlight?.id ?? null;
+  const [showFullLog, setShowFullLog] = useState(false);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+  }, []);
+
+  /*
+    Scroll after React has committed, rather than from a requestAnimationFrame
+    callback inside the click handler. A backgrounded tab never runs rAF, so
+    the scroll would silently not happen; an effect runs either way.
+  */
+  useEffect(() => {
+    if (!highlight) return;
+    const el = document.getElementById(`field-${highlight.id}`);
+    if (!el) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+  }, [highlight]);
+
+  /**
+   * Scroll a named field into view and mark it, so the eye lands on the right
+   * row rather than roughly the right area. Clears any active filter first,
+   * otherwise the target may not be rendered at all.
+   */
+  function revealField(id: string) {
+    setTab("Onboarding");
+    setFilter("all");
+    setHighlight((current) => ({ id, nonce: (current?.nonce ?? 0) + 1 }));
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlight(null), 2500);
+  }
 
   const teamNames = detail.team.map((member) => member.name);
 
@@ -157,6 +192,9 @@ export function ProgrammeDetailContent({
           setTab("Onboarding");
           setFilter("blocking");
         }}
+        onOpenOldest={
+          blockingOpen[0] ? () => revealField(blockingOpen[0].id) : undefined
+        }
       />
 
       <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -195,14 +233,19 @@ export function ProgrammeDetailContent({
                 />
               ) : (
                 <>
-                  {/* Section header counts, including unassigned. DESIGN 6.2. */}
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <h2 className="text-section font-medium text-ink">
-                      Onboarding{" "}
-                      <span className="font-time text-slate">
-                        {answered} of {fields.length}
-                      </span>
-                    </h2>
+                  {/*
+                    A summary of the whole tab, deliberately not a heading. It
+                    used to be an h2 reading "Onboarding 5 of 9" directly above
+                    an h3 reading "Audience 2 of 3" at the same weight, which
+                    made the total and its parts look like siblings.
+                  */}
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line pb-3">
+                    <span className="text-body text-slate">
+                      <span className="font-time text-time font-medium text-ink">
+                        {answered}
+                      </span>{" "}
+                      of <span className="font-time">{fields.length}</span> answered
+                    </span>
                     <button
                       type="button"
                       onClick={() =>
@@ -277,10 +320,12 @@ export function ProgrammeDetailContent({
                       const done = sectionFields.filter((f) => !isOpen(f)).length;
                       return (
                         <section key={section}>
-                          <h3 className="text-section font-medium text-ink">
-                            {section}{" "}
-                            <span className="font-time text-slate">
-                              {done} of {sectionFields.length}
+                          <h3 className="flex items-baseline gap-2">
+                            <span className="text-section font-medium text-ink">
+                              {section}
+                            </span>
+                            <span className="font-time text-caption text-slate">
+                              {done}/{sectionFields.length}
                             </span>
                           </h3>
                           <div className="mt-2 border border-line bg-surface">
@@ -291,6 +336,7 @@ export function ProgrammeDetailContent({
                                 now={now}
                                 team={teamNames}
                                 first={index === 0}
+                                highlighted={field.id === highlightId}
                                 onChange={(patch) => updateField(field.id, patch)}
                               />
                             ))}
@@ -388,15 +434,28 @@ export function ProgrammeDetailContent({
 
             <Detail label="Recent activity">
               <ul className="flex flex-col gap-2">
-                {detail.audit.slice(0, 5).map((entry, index) => (
-                  <li key={index} className="text-body text-slate">
-                    {entry.text}
-                    <span className="ml-1 font-time text-caption">
-                      {formatDayMonth(addDays(now, entry.dayOffset))}
-                    </span>
-                  </li>
-                ))}
+                {(showFullLog ? detail.audit : detail.audit.slice(0, 5)).map(
+                  (entry, index) => (
+                    <li key={index} className="text-body text-slate">
+                      {entry.text}
+                      <span className="ml-1 font-time text-caption">
+                        {formatDayMonth(addDays(now, entry.dayOffset))}
+                      </span>
+                    </li>
+                  ),
+                )}
               </ul>
+              {detail.audit.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setShowFullLog((v) => !v)}
+                  className="mt-2 rounded-base text-body font-medium text-accent underline underline-offset-2"
+                >
+                  {showFullLog
+                    ? "Show recent only"
+                    : `View full log (${detail.audit.length})`}
+                </button>
+              )}
             </Detail>
           </div>
         </aside>
@@ -424,19 +483,34 @@ function FieldRow({
   now,
   team,
   first,
+  highlighted,
   onChange,
 }: {
   field: OnboardingField;
   now: Date;
   team: string[];
   first: boolean;
+  highlighted: boolean;
   onChange: (patch: Partial<OnboardingField>) => void;
 }) {
   const open = isOpen(field);
   return (
-    <div className={`p-3 ${first ? "" : "border-t border-line"}`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-body font-medium text-ink">{field.question}</span>
+    <div
+      id={`field-${field.id}`}
+      className={`scroll-mt-6 border-l-2 p-3 transition-colors ${
+        first ? "" : "border-t border-t-line"
+      } ${
+        highlighted
+          ? "border-l-accent bg-accent-sub"
+          : "border-l-transparent bg-surface"
+      }`}
+    >
+      {/*
+        The question is a label for the answer, so it sits below it in weight.
+        The answer is the content of the record and leads. DESIGN.md section 3.
+      */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <span className="text-body font-medium text-slate">{field.question}</span>
         <span className="flex items-center gap-2">
           {field.blocking && open && (
             <span className="rounded-base bg-critical-bg px-2 py-[2px] text-caption font-medium uppercase text-critical">
@@ -444,7 +518,7 @@ function FieldRow({
             </span>
           )}
           <StatusPill status={field.status} />
-          <span className="font-time text-label text-slate">
+          <span className="font-time text-caption text-slate">
             {formatDayMonth(addDays(now, field.dueOffset))}
           </span>
         </span>
@@ -461,12 +535,19 @@ function FieldRow({
           ariaLabel={field.question}
           multiline
           placeholder="Not answered"
+          textClass="text-answer"
         />
       </div>
 
+      {/*
+        Attribution stays exactly as prominent as it was. On this module, who
+        said a thing and when is not a detail about the record, it is the
+        record. DESIGN.md section 3.
+      */}
       {field.answeredBy && (
-        <p className="mt-1 text-caption text-slate">
-          Answered by {field.answeredBy.name}
+        <p className="mt-2 text-caption text-slate">
+          Answered by{" "}
+          <span className="text-ink">{field.answeredBy.name}</span>
           {field.answeredBy.party === "client" ? " (client)" : ""}
           {" · "}
           <span className="font-time">
@@ -475,19 +556,22 @@ function FieldRow({
         </p>
       )}
 
-      <div className="mt-2 flex flex-wrap items-center gap-4">
-        <span className="text-caption text-slate">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-slate">
+        <span>
           Owner <span className="text-ink">{OWNER_LABEL[field.owner]}</span>
         </span>
-        <label className="flex items-center gap-2 text-caption text-slate">
+        <span className="flex items-center gap-1">
           Assignee
           <Select
+            quiet
             aria-label={`Assignee for ${field.question}`}
             value={field.assignee ?? ""}
             onChange={(event) =>
-              onChange({ assignee: event.target.value === "" ? null : event.target.value })
+              onChange({
+                assignee: event.target.value === "" ? null : event.target.value,
+              })
             }
-            className={countsAsUnassigned(field) ? "text-watch" : ""}
+            className={countsAsUnassigned(field) ? "text-watch" : "text-ink"}
           >
             <option value="">Unassigned</option>
             {team.map((name) => (
@@ -496,7 +580,7 @@ function FieldRow({
               </option>
             ))}
           </Select>
-        </label>
+        </span>
       </div>
     </div>
   );

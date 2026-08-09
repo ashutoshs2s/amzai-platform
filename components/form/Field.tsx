@@ -110,15 +110,46 @@ export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   invalid?: boolean;
   /** Drop the border, for use inside a bordered cluster. */
   bare?: boolean;
+  /**
+   * Reads as plain text and reveals its border and chevron on hover or focus.
+   * For a value that is mostly read rather than changed. DESIGN.md section 5.
+   *
+   * Still a real select: tabbable, keyboard operable, and it picks up the
+   * global focus ring. Only the resting appearance changes.
+   */
+  quiet?: boolean;
 };
 
 export function Select({
   invalid = false,
   bare = false,
+  quiet = false,
   className = "",
   children,
   ...rest
 }: SelectProps) {
+  if (quiet) {
+    return (
+      <span className="group relative inline-flex items-center">
+        <select
+          className={`h-6 appearance-none rounded-base border border-transparent bg-transparent py-0 pl-1 pr-5 text-body text-ink transition-colors group-hover:border-line group-hover:bg-surface focus:border-accent focus:bg-surface ${className}`}
+          {...rest}
+        >
+          {children}
+        </select>
+        <svg
+          width="8"
+          height="5"
+          viewBox="0 0 8 5"
+          aria-hidden="true"
+          className="pointer-events-none absolute right-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+        >
+          <path d="M0 0 L8 0 L4 5 Z" fill="currentColor" />
+        </svg>
+      </span>
+    );
+  }
+
   return (
     <select
       className={`h-8 ${controlClass(bare, invalid, className)}`}

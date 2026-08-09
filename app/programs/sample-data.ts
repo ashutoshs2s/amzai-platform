@@ -412,6 +412,12 @@ export const SAMPLE_DETAILS: Record<string, ProgrammeDetail> = {
       { dayOffset: -4, text: "Priya Raman flagged Approved copy for the invitation email as Blocked" },
       { dayOffset: -7, text: "Priya Raman approved Who is speaking, and what is their title?" },
       { dayOffset: -10, text: "Priya Raman approved Venue and room set-up" },
+      { dayOffset: -12, text: "Daniel Okoro was assigned as specialist" },
+      { dayOffset: -15, text: "Rachel Okonjo answered Which companies are off limits?" },
+      { dayOffset: -19, text: "Rachel Okonjo answered Which job titles should we target?" },
+      { dayOffset: -22, text: "Priya Raman generated onboarding from B2B Tech event, v3" },
+      { dayOffset: -22, text: "Priya Raman was assigned as delivery lead" },
+      { dayOffset: -24, text: "Sana Iqbal created the programme" },
     ],
   },
   "pr-3": {
