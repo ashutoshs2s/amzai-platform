@@ -46,6 +46,7 @@ The person building this is not a developer. They run the business. They can rea
 - Every table gets `created_at`, `updated_at`, an `updated_at` trigger and an audit trigger. The one exception is `audit_events`, which has neither, and the migration must carry a comment saying why: it is append-only, so nothing ever updates it, and an audit trigger on the audit table would recurse.
 - Write migrations that can run twice without breaking.
 - Onboarding generation is blocked until a programme has at least one team assignment, and the creation sequence in SPEC.md section 4 is an order, not a preference. Do not add a way around it.
+- Where the platform cannot tell who something belongs to, it asks rather than guesses. Never break a tie with a heuristic like highest allocation or earliest assignment; a wrong guess stays invisible until a deadline is missed. See SPEC.md section 4.3.
 - Row level security policies never read a role directly out of `users`; that recurses. Every policy asks the `SECURITY DEFINER` helper function instead.
 - The audit trigger reads its actor from a session variable the route sets, not from `auth.uid()`. Client-facing routes run under the service role and have no database identity.
 - Client-facing surfaces use the same tokens and components as the internal app but follow DESIGN.md section 6.3 and 6.4, not section 5 density rules. They must work on a phone.

@@ -222,6 +222,27 @@ Where the client answered a field, the attribution shows beneath the response in
 
 **Generating onboarding.** Before generation, the Onboarding tab shows the empty state naming the selected template and a `Generate onboarding` button. Until at least one team member is assigned, the button is disabled and the reason sits beside it in plain words: `Assign at least one team member before generating. Fields are assigned by role.` Never a disabled button with no explanation, and never a generate that silently produces unassigned fields.
 
+**The resolution step.** Generate is two steps, never one. Pressing it replaces the tab content in place with the resolution step. Not a modal: it can run to several rows, the admin may want the assigned team in the right column visible beside it, and a decision that writes to the database should not be something you dismiss by clicking outside it.
+
+One row per role that more than one person holds, using the table pattern from section 5:
+
+| Role | Fields | Assign to |
+|---|---|---|
+| Specialist | 12 | select: Priya Raman · Daniel Okoro · Leave unassigned |
+| Delivery lead | 4 | select: Sana Iqbal · Tom Whitfield · Leave unassigned |
+
+Role and names in the UI face. `Fields` is a count, so mono and right-aligned. The select starts with nothing chosen, and `Leave unassigned` is a listed option rather than a way of skipping the row — the admin should have to choose it on purpose.
+
+Roles held by exactly one person never appear. They were not a question. Roles nobody holds never appear either; they resolve to unassigned and show up in the header count afterwards.
+
+Beneath the table, plain text in the same form as a table's row count: `2 roles need a decision · 16 fields affected`. Counts mono.
+
+The confirm button stays disabled until every row has a choice, with the reason stated beside it: `Choose an assignee, or leave unassigned, for every role above.` No partial generation, no silent no-op.
+
+Where a role was resolved on an earlier generation, its row does not appear. The line beneath the table says so instead: `3 roles resolved from earlier choices · Review`, where `Review` opens the recorded resolutions and allows changing them. A resolution whose person has since left the programme is stale, so that row does appear, with `Priya Raman is no longer on this programme` in `--watch` beneath the select.
+
+If no role is ambiguous and none is stale, there is nothing to decide and generation runs straight through. Do not show an empty resolution step to confirm that there was no question.
+
 **Right, persistent, roughly 30%.** Does not scroll away. Contains, in this order: the countdown, the next milestone with date, the blocking item count, the named client approver, the assigned team, and the last five audit entries in plain language. This column is the answer to "what is the state of this program" without reading anything else.
 
 The blocking bar from section 5 sits above both columns, full width.
@@ -312,7 +333,7 @@ Paste these in order. They replace prompt 6 in the Build Kit.
 > Following DESIGN.md section 6.1, build the program list screen using the DataTable component. Columns, alignment, default sort by countdown ascending, and the four filter counts above the table exactly as specified. Do not use card or tile components for the counts.
 
 **Program detail**
-> Following DESIGN.md section 6.2, build the program detail screen: two columns at roughly 70/30, tabbed sections on the left with the onboarding section rendering fields inline-editable with owner, assignee, due date, status pill and blocking marker, and a persistent non-scrolling right column in the order specified. Blocking bar full width above both columns. Include the unassigned count in the section header, the bulk reassign action, and the generate-onboarding button with its disabled state and stated reason per SPEC.md section 4.
+> Following DESIGN.md section 6.2, build the program detail screen: two columns at roughly 70/30, tabbed sections on the left with the onboarding section rendering fields inline-editable with owner, assignee, due date, status pill and blocking marker, and a persistent non-scrolling right column in the order specified. Blocking bar full width above both columns. Include the unassigned count in the section header, the bulk reassign action, and the generate-onboarding flow with its disabled state, its two-step role resolution table, and the stated reasons on both, per SPEC.md section 4.
 
 **Client dashboard**
 > Following DESIGN.md section 6.3, build the client dashboard as a standalone page with no navigation and no left rail, served from a token URL at client.amzai.events/{org-slug}/{program-slug}. Large mono metrics with freshness markers, a single horizontal progress bar built without a chart library, a written summary given generous room, and the next milestone. Must work on a phone.

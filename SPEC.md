@@ -67,6 +67,18 @@ Build only these tables first.
 
 `role_on_program` is constrained to those four values. It does not include `admin`, which is a system role rather than a job on a programme.
 
+### program_role_resolutions
+
+One row per role on a programme that needed an admin decision, so the decision is auditable and never asked twice.
+
+`id` uuid pk · `program_id` uuid fk · `role_on_program` text (engagement_lead, delivery_lead, specialist, data_ops) · `user_id` uuid fk users nullable · `resolved_by` uuid fk users · `resolved_at` timestamptz · `created_at`, `updated_at` timestamptz
+
+Unique on (`program_id`, `role_on_program`). One answer per role per programme.
+
+`user_id` null means the admin deliberately chose to leave that role's fields unassigned. That is different from having no row at all, which means the question was never asked. Keep the two distinct: the first is settled, the second is not.
+
+`resolved_by` and `resolved_at` name who decided and when. Every write here also writes an audit row.
+
 ### onboarding_templates
 `id` uuid pk · `name` text · `program_type` text · `industry` text nullable, null means applies to all · `version` integer · `active` boolean · `created_at`, `updated_at` timestamptz
 
@@ -172,16 +184,42 @@ The admin sees which template was selected before generating, and may override i
 
 The reason, recorded so it is not softened later: without an assigned team there is no one for `default_assignee_role` to resolve to, so every field generates unassigned, and unassigned work is invisible work. Blocking costs one step at setup. Repairing it costs a field-by-field pass across a live programme.
 
-### 4.3 Assigning fields at generation
+### 4.3 Resolving roles to people
 
-Each response takes its `assignee_id` from whoever holds the field's `default_assignee_role` on that programme.
+Each response takes its `assignee_id` from whoever holds the field's `default_assignee_role` on that programme. There are exactly three cases.
 
-- Fields where `owner` is `client` get no assignee.
-- Fields where `default_assignee_role` is null get no assignee.
-- Fields whose role is not filled on this programme get no assignee, and are reported as unassigned.
-- Where two people hold the same role on one programme, the field goes to the one with the higher `allocation_percent`, ties broken by the earlier assignment. Deterministic, usually right, and always correctable inline.
+- **One person holds the role.** Assign automatically. There is nothing to ask.
+- **Nobody holds the role.** Leave unassigned and report it. Section 4.7 makes it visible.
+- **More than one person holds the role.** Stop and ask. See 4.4.
 
-### 4.4 Reassignment
+Fields where `owner` is `client`, and fields where `default_assignee_role` is null, get no assignee and take no part in resolution.
+
+The system does not break a tie by allocation, seniority, or order of assignment. Any such rule is a guess, and a wrong guess is invisible until someone misses a deadline they never knew was theirs. An admin answering one question at setup is cheaper than that, every time.
+
+### 4.4 The resolution step
+
+Generation is two steps, never one. Before anything is written, the admin is shown one row per ambiguous role: the role, how many fields depend on the choice, and the people who hold it.
+
+```
+Specialist · 12 fields       Priya Raman | Daniel Okoro | Leave unassigned
+Delivery lead · 4 fields     Sana Iqbal  | Tom Whitfield | Leave unassigned
+```
+
+The admin picks one person per row, or `Leave unassigned` for any row they are not ready to decide. Generation proceeds only when every ambiguous row carries a choice, and an explicit `Leave unassigned` counts as one.
+
+Leaving unassigned is a decision, not a failure to decide. It is recorded as a decision and reused as one, so nobody is forced into naming a person before they know who it should be.
+
+### 4.5 Resolutions are recorded and reused
+
+Each choice writes a row to `program_role_resolutions` and an audit row alongside it.
+
+When onboarding is regenerated, extended with new template fields, or has a second template applied, resolution reads the recorded choice for that role and does not ask again. A recorded `Leave unassigned` is honoured the same way: the question is settled, and asking a second time is noise.
+
+One exception. If the recorded person is no longer assigned to the programme, the resolution is stale and the role is asked again. Silently assigning work to someone who has left the programme is exactly the invisible failure this step exists to prevent.
+
+Resolutions are editable on the programme afterwards. Changing one affects the next generation only. Existing assignments do not move, for the same reason given in 4.6.
+
+### 4.6 Reassignment
 
 `assignee_id` is editable inline on any response, at any time.
 
@@ -189,9 +227,11 @@ Changing someone's `role_on_program` does **not** move existing assignments. Tho
 
 For the real cases — someone leaves, someone covers — the programme detail screen carries a bulk action: reassign every response currently assigned to one person to another. It writes one audit row per response changed, so the trail stays complete rather than recording a single vague bulk event.
 
-### 4.5 Unassigned is visible
+### 4.7 Unassigned is visible
 
 The programme detail screen shows an unassigned count beside the section completion counts. A field nobody owns is the exact failure this mechanism exists to prevent, so it is counted in plain sight rather than discovered by filtering.
+
+This holds whether a field is unassigned because no one holds its role or because an admin deliberately chose `Leave unassigned`. The count does not distinguish them, because the consequence is identical: work nobody is doing.
 
 ## 5. Access rules
 
