@@ -29,6 +29,25 @@ const CONTROL_BASE =
   "rounded-base border border-line bg-surface px-2 text-body text-ink " +
   "placeholder:text-mute focus:border-accent disabled:bg-canvas disabled:text-mute";
 
+/*
+  For controls inside a bordered cluster, such as the filter row in DESIGN.md
+  section 5. The cluster supplies the box and the dividers, so each control
+  drops its own border rather than drawing a second one inside the first.
+*/
+const CONTROL_BARE =
+  "bg-transparent px-2 text-body text-ink placeholder:text-mute " +
+  "disabled:text-mute focus:outline-offset-[-2px]";
+
+function controlClass(bare: boolean, invalid: boolean, extra: string) {
+  return [
+    bare ? CONTROL_BARE : CONTROL_BASE,
+    invalid && !bare ? "border-critical" : "",
+    extra,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export type FieldProps = {
   label: string;
   /** Rendered beneath the label, for guidance the operator needs before typing. */
@@ -67,19 +86,20 @@ export type TextInputProps = InputHTMLAttributes<HTMLInputElement> & {
   /** Set for values that are a time or a quantity. DESIGN.md section 2. */
   mono?: boolean;
   invalid?: boolean;
+  /** Drop the border, for use inside a bordered cluster. */
+  bare?: boolean;
 };
 
 export function TextInput({
   mono = false,
   invalid = false,
+  bare = false,
   className = "",
   ...rest
 }: TextInputProps) {
   return (
     <input
-      className={`h-8 ${CONTROL_BASE} ${mono ? "font-time" : ""} ${
-        invalid ? "border-critical" : ""
-      } ${className}`}
+      className={`h-8 ${controlClass(bare, invalid, `${mono ? "font-time" : ""} ${className}`)}`}
       aria-invalid={invalid || undefined}
       {...rest}
     />
@@ -88,12 +108,20 @@ export function TextInput({
 
 export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   invalid?: boolean;
+  /** Drop the border, for use inside a bordered cluster. */
+  bare?: boolean;
 };
 
-export function Select({ invalid = false, className = "", children, ...rest }: SelectProps) {
+export function Select({
+  invalid = false,
+  bare = false,
+  className = "",
+  children,
+  ...rest
+}: SelectProps) {
   return (
     <select
-      className={`h-8 ${CONTROL_BASE} ${invalid ? "border-critical" : ""} ${className}`}
+      className={`h-8 ${controlClass(bare, invalid, className)}`}
       aria-invalid={invalid || undefined}
       {...rest}
     >
@@ -109,9 +137,7 @@ export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
 export function Textarea({ invalid = false, className = "", ...rest }: TextareaProps) {
   return (
     <textarea
-      className={`min-h-16 py-1 ${CONTROL_BASE} ${
-        invalid ? "border-critical" : ""
-      } ${className}`}
+      className={`min-h-16 py-1 ${controlClass(false, invalid, className)}`}
       aria-invalid={invalid || undefined}
       {...rest}
     />

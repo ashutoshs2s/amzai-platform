@@ -34,8 +34,14 @@ export type Column<T> = {
    * by rendered markup is meaningless.
    */
   sortValue?: (row: T) => string | number;
-  /** Column width, e.g. "160px". Optional. */
+  /** Column width, e.g. "160px". Honoured exactly when layout is "fixed". */
   width?: string;
+  /**
+   * Clip overflowing content with an ellipsis instead of letting it widen the
+   * column. Needs a width and layout="fixed". Give the cell a title attribute
+   * so the full value is still reachable.
+   */
+  truncate?: boolean;
 };
 
 export type DataTableProps<T> = {
@@ -55,6 +61,12 @@ export type DataTableProps<T> = {
   selectedKey?: string | null;
   /** Sort applied on first render. The programme list sorts by countdown. */
   defaultSort?: { key: string; direction: SortDirection };
+  /**
+   * "fixed" honours column widths exactly and lets a capped column truncate.
+   * "auto" sizes columns to their content, which lets the widest text column
+   * absorb the whole table. Default "auto".
+   */
+  layout?: "auto" | "fixed";
 
   /** The filter row. A single row of compact controls, never a panel. */
   filters?: ReactNode;
@@ -107,6 +119,7 @@ export function DataTable<T>({
   onRowClick,
   selectedKey = null,
   defaultSort,
+  layout = "auto",
   filters,
   activeFilterCount = 0,
   onClearFilters,
@@ -153,9 +166,7 @@ export function DataTable<T>({
 
   return (
     <div className={className}>
-      {filters && (
-        <div className="mb-2 flex flex-wrap items-center gap-2">{filters}</div>
-      )}
+      {filters && <div className="mb-2">{filters}</div>}
 
       {/* Row count and active filters, as plain text. Section 5. */}
       <p className="mb-2 text-label text-slate">
@@ -183,7 +194,11 @@ export function DataTable<T>({
       </p>
 
       <div className="overflow-x-auto border border-line bg-surface">
-        <table className="w-full border-collapse text-body">
+        <table
+          className={`w-full border-collapse text-body ${
+            layout === "fixed" ? "table-fixed" : ""
+          }`}
+        >
           <thead>
             <tr>
               {columns.map((column) => {
@@ -203,7 +218,9 @@ export function DataTable<T>({
                           ? "none"
                           : undefined
                     }
-                    className={`sticky top-0 z-10 border-b border-line bg-surface px-3 py-2 text-table-header font-medium uppercase tracking-[0.04em] text-slate ${
+                    // Canvas fill and a doubled bottom rule. A single hairline
+                    // reads as just another row boundary. DESIGN.md section 5.
+                    className={`sticky top-0 z-10 border-b-2 border-line bg-canvas px-3 py-2 text-table-header font-medium uppercase tracking-[0.04em] text-slate ${
                       column.align === "right" ? "text-right" : "text-left"
                     }`}
                   >
@@ -276,9 +293,13 @@ export function DataTable<T>({
                     {columns.map((column, columnIndex) => (
                       <td
                         key={column.key}
-                        className={`h-row px-3 py-0 align-middle ${
-                          column.align === "right" ? "text-right" : "text-left"
-                        } ${
+                        // whitespace-nowrap keeps 36px a hard height rather
+                        // than a minimum: a cell that wraps to two lines makes
+                        // the row taller and the countdown column stops
+                        // scanning as a column.
+                        className={`h-row whitespace-nowrap px-3 py-0 align-middle ${
+                          column.truncate ? "truncate" : ""
+                        } ${column.align === "right" ? "text-right" : "text-left"} ${
                           columnIndex === 0
                             ? isSelected
                               ? "border-l-2 border-l-accent"

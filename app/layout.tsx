@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Inter } from "next/font/google";
+import { IBM_Plex_Mono, Montserrat } from "next/font/google";
 
 import "./globals.css";
 
-// DESIGN.md section 3. Inter for the interface, IBM Plex Mono for time and
-// quantity. Loaded through next/font so they are self-hosted and there is no
-// request to Google at run time.
-const inter = Inter({
+// DESIGN.md section 3. Montserrat for the interface, IBM Plex Mono for time
+// and quantity. Loaded through next/font so they are self-hosted and there is
+// no request to Google at run time.
+const montserrat = Montserrat({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-montserrat",
   display: "swap",
 });
 
@@ -30,7 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en-GB"
-      className={`${inter.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${montserrat.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
     </html>

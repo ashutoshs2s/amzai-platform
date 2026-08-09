@@ -24,10 +24,21 @@ import {
 /** Which of the four counts is currently filtering the table. */
 type CountFilter = "active" | "at_risk" | "blocked" | "awaiting_client" | null;
 
-const COUNTS: { id: Exclude<CountFilter, null>; label: string; test: (p: Programme) => boolean }[] = [
+const COUNTS: {
+  id: Exclude<CountFilter, null>;
+  label: string;
+  test: (p: Programme) => boolean;
+  /** Status colour the number carries when above zero. Absent means none. */
+  tone?: string;
+}[] = [
   { id: "active", label: "Active", test: (p) => p.status === "active" },
-  { id: "at_risk", label: "At risk", test: (p) => p.atRisk },
-  { id: "blocked", label: "Blocked", test: (p) => p.hasBlocked },
+  { id: "at_risk", label: "At risk", test: (p) => p.atRisk, tone: "text-watch" },
+  {
+    id: "blocked",
+    label: "Blocked",
+    test: (p) => p.hasBlocked,
+    tone: "text-critical",
+  },
   {
     id: "awaiting_client",
     label: "Awaiting client",
@@ -122,20 +133,29 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "name",
       header: "Program",
-      cell: (row) => <span className="font-medium text-ink">{row.name}</span>,
+      // Capped, so the name cannot absorb the table and push the countdown to
+      // the far edge. The full name stays reachable on hover.
+      width: "320px",
+      truncate: true,
+      cell: (row) => (
+        <span className="font-medium text-ink" title={row.name}>
+          {row.name}
+        </span>
+      ),
       sortValue: (row) => row.name,
     },
     {
       key: "vertical",
       header: "Vertical",
-      width: "170px",
+      width: "150px",
       cell: (row) => <span className="text-slate">{verticalLabel(row.vertical)}</span>,
       sortValue: (row) => verticalLabel(row.vertical),
     },
     {
       key: "subVertical",
       header: "Sub-vertical",
-      width: "170px",
+      width: "160px",
+      truncate: true,
       cell: (row) =>
         row.subVertical ? (
           <span className="text-slate">{row.subVertical}</span>
@@ -151,7 +171,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "type",
       header: "Type",
-      width: "130px",
+      width: "115px",
       cell: (row) => <span className="text-slate">{row.type}</span>,
       sortValue: (row) => row.type,
     },
@@ -159,7 +179,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       key: "countdown",
       header: "Countdown",
       align: "right",
-      width: "200px",
+      width: "185px",
       cell: (row) =>
         row.time.kind === "event" ? (
           <Countdown
@@ -183,18 +203,29 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "owner",
       header: "Owner",
-      width: "150px",
-      cell: (row) => <span className="text-slate">{row.owner}</span>,
+      width: "140px",
+      truncate: true,
+      cell: (row) => (
+        <span className="text-slate" title={row.owner}>
+          {row.owner}
+        </span>
+      ),
       sortValue: (row) => row.owner,
     },
     {
       key: "blocking",
       header: "Blocking",
       align: "right",
-      width: "100px",
+      width: "90px",
+      // The platform's central concept. Above zero it carries the critical
+      // colour at medium weight, so it reads as loudly as it matters; at zero
+      // it drops to slate and gets out of the way.
       cell: (row) => (
         <span
-          className={`font-time ${row.blocking > 0 ? "text-critical" : "text-slate"}`}
+          className={`font-time text-time ${
+            row.blocking > 0 ? "font-medium text-critical" : "text-slate"
+          }`}
+          title={row.blocking > 0 ? `${row.blocking} blocking` : "None blocking"}
         >
           {row.blocking}
         </span>
@@ -204,19 +235,24 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "status",
       header: "Status",
-      width: "120px",
+      // No width: this last column absorbs the slack, so it lands at the
+      // right-hand edge where nothing is being read across.
       cell: (row) => <StatusPill status={row.status} />,
       sortValue: (row) => row.status,
     },
   ];
 
+  /*
+    One bordered cluster, not five floating boxes. The group draws the box and
+    the dividers; each control is bare inside it. DESIGN.md section 5.
+  */
   const filters = (
-    <>
+    <div className="inline-flex flex-wrap items-center divide-x divide-line overflow-hidden rounded-base border border-line bg-surface">
       <Select
+        bare
         aria-label="Vertical"
         value={vertical}
         onChange={(event) => changeVertical(event.target.value as VerticalId | "all")}
-       
       >
         <option value="all">All verticals</option>
         {VERTICALS.map((entry) => (
@@ -231,6 +267,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
         vanishes makes the operator wonder what they did.
       */}
       <Select
+        bare
         aria-label="Sub-vertical"
         value={lawFirmsSelected ? NO_SUB_VERTICAL : subVertical}
         disabled={lawFirmsSelected}
@@ -238,7 +275,6 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
           lawFirmsSelected ? "Law Firms are not subdivided" : undefined
         }
         onChange={(event) => setSubVertical(event.target.value)}
-       
       >
         {lawFirmsSelected ? (
           <option value={NO_SUB_VERTICAL}>{NO_SUB_VERTICAL}</option>
@@ -255,10 +291,10 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       </Select>
 
       <Select
+        bare
         aria-label="Type"
         value={type}
         onChange={(event) => setType(event.target.value)}
-       
       >
         <option value="all">All types</option>
         {PROGRAMME_TYPES.map((entry) => (
@@ -269,10 +305,10 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       </Select>
 
       <Select
+        bare
         aria-label="Status"
         value={status}
         onChange={(event) => setStatus(event.target.value)}
-       
       >
         <option value="all">All statuses</option>
         <option value="onboarding">Onboarding</option>
@@ -282,10 +318,10 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       </Select>
 
       <Select
+        bare
         aria-label="Owner"
         value={owner}
         onChange={(event) => setOwner(event.target.value)}
-       
       >
         <option value="all">All owners</option>
         {OWNERS.map((entry) => (
@@ -296,13 +332,14 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       </Select>
 
       <TextInput
+        bare
         aria-label="Filter by programme name"
         placeholder="Filter by name"
         value={nameFilter}
         onChange={(event) => setNameFilter(event.target.value)}
-        className="w-56"
+        className="w-52"
       />
-    </>
+    </div>
   );
 
   return (
@@ -310,34 +347,39 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       <h1 className="text-page-title font-semibold">Programs</h1>
 
       {/*
-        The four counts. Text and number, not cards and not tiles. A programme
-        can appear in more than one, so these will not sum to the row count.
+        The four counts, as controls rather than a caption: hairline border,
+        hover state, filled pressed state. Not tiles — 36px high, no large
+        numerals, no trend arrows, no shadow. A programme can appear in more
+        than one, so these will not sum to the row count.
       */}
-      <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-2 border-b border-line pb-3">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {countValues.map((count) => {
           const isActive = countFilter === count.id;
+          const carriesStatus = count.value > 0 && count.tone !== undefined;
           return (
             <button
               key={count.id}
               type="button"
               aria-pressed={isActive}
               onClick={() => setCountFilter(isActive ? null : count.id)}
-              className={`rounded-base ${
-                isActive ? "text-accent" : "text-ink hover:text-accent"
+              className={`inline-flex h-8 items-center gap-2 rounded-base border px-3 transition-colors ${
+                isActive
+                  ? "border-accent bg-accent-sub text-ink"
+                  : "border-line bg-surface text-ink hover:bg-canvas"
               }`}
             >
               <span
-                className={`font-time text-body ${isActive ? "font-medium" : ""}`}
-              >
-                {count.value}
-              </span>{" "}
-              <span
-                className={`text-body ${
-                  isActive ? "font-medium underline underline-offset-4" : "text-slate"
+                className={`font-time text-time font-medium ${
+                  carriesStatus ? count.tone : "text-slate"
                 }`}
               >
-                {count.label}
+                {count.value}
               </span>
+              {/*
+                The word is always present, so the colour on the number is
+                never carrying the meaning by itself. Section 7.
+              */}
+              <span className="text-body">{count.label}</span>
             </button>
           );
         })}
@@ -350,6 +392,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
           rowKey={(row) => row.id}
           noun={{ one: "program", other: "programs" }}
           defaultSort={{ key: "countdown", direction: "asc" }}
+          layout="fixed"
           selectedKey={opened}
           onRowClick={(row) => setOpened(row.id)}
           filters={filters}

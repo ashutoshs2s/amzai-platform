@@ -39,15 +39,17 @@ Applied consistently, this is the one thing that will make the platform recognis
 
 Neutrals carry the interface. Colour carries meaning only.
 
+**Navy and white.** One family: every neutral is navy-tinted so secondary text, borders and the page background all belong to the same palette rather than sitting on it as cool grey.
+
 ```
---ink:        #14161A   /* primary text, headers */
---slate:      #5B6270   /* secondary text, labels, captions, freshness */
---mute:       #8B92A0   /* placeholder and disabled text only */
---line:       #E3E5E9   /* borders, dividers, table rules */
+--ink:        #0F1B33   /* primary text, headers */
+--slate:      #525C73   /* secondary text, labels, captions, freshness */
+--mute:       #8A92A6   /* placeholder and disabled text only */
+--line:       #DCE1EB   /* borders, dividers, table rules */
 --surface:    #FFFFFF   /* cards, tables, panels */
---canvas:     #F7F8FA   /* page background */
---accent:     #1F5F5B   /* interactive: links, primary buttons, focus */
---accent-sub: #E8F1F0   /* accent background wash, selected rows */
+--canvas:     #F6F8FC   /* page background */
+--accent:     #1B3A6B   /* interactive: links, primary buttons, focus */
+--accent-sub: #E6ECF6   /* accent background wash, selected rows */
 ```
 
 **`--mute` is not a third tier of text.** It sits at 3.13:1 on white, below the floor in section 7, and darkening it far enough to pass makes it indistinguishable from `--slate`. So its role is narrowed rather than its value changed: placeholder text and disabled controls, both of which the contrast floor exempts. Everything a reader is expected to actually read, including captions and freshness markers, uses `--slate`.
@@ -55,40 +57,61 @@ Neutrals carry the interface. Colour carries meaning only.
 Status colours, used only for status. Never decoratively.
 
 ```
---clear:      #157347   /* on track, approved, confirmed */
---clear-bg:   #E9F5EE
---watch:      #9A5D00   /* at risk, due soon, awaiting */
---watch-bg:   #FDF3E3
---critical:   #B3261E   /* blocking, overdue, failed */
---critical-bg:#FBEAE9
---idle:       #5B6270   /* not started, N/A, complete */
---idle-bg:    #F0F1F4
+--clear:      #1A6A4A   /* on track, approved, confirmed */
+--clear-bg:   #E8F1EC
+--watch:      #8A5A12   /* at risk, due soon, awaiting */
+--watch-bg:   #F5EEE1
+--critical:   #A32E28   /* blocking, overdue, failed */
+--critical-bg:#F7E9E8
+--idle:       #525C73   /* not started, N/A, complete */
+--idle-bg:    #EDEFF5
 ```
 
-There are **four** semantic status tones, not five. `--watch` was darkened from `#B26B00`, which failed the section 7 floor at 4.20:1 on white and 3.82:1 on its own pill background. The current value clears it everywhere: 5.33 on surface, 5.02 on canvas, 4.85 on `--watch-bg`.
+There are **four** semantic status tones, not five. They are muted deliberately: beside navy, a saturated green or red reads as an alert about the interface rather than about the work. Muted still carries meaning; loud stops being noticed.
+
+Every meaningful pairing clears the section 7 floor. Measured:
+
+| | on surface | on canvas | on own bg |
+|---|---|---|---|
+| `--clear` | 6.55 | 6.16 | 5.69 |
+| `--watch` | 5.91 | 5.56 | 5.12 |
+| `--critical` | 7.05 | 6.63 | 5.97 |
+| `--idle` | 6.69 | 6.30 | 5.82 |
+| `--accent` | 11.27 | 10.60 | 9.49 |
+| `--ink` | 17.14 | 16.12 | |
+| `--slate` | 6.69 | 6.30 | |
+
+`/styleguide` recomputes all of these from the live token values on every load, so this table is checkable rather than a claim.
 
 Dark mode is out of scope for v1. Do not build it partially.
 
 ### Type
 
 ```
---font-ui:   'Inter', system-ui, sans-serif
+--font-ui:   'Montserrat', system-ui, sans-serif
 --font-time: 'IBM Plex Mono', ui-monospace, monospace
 ```
 
-Both are free on Google Fonts. If Amzai has brand faces, substitute the UI face only; the mono role stays.
+Both are free on Google Fonts and self-hosted through `next/font`, so nothing is requested from Google at run time. If Amzai has brand faces, substitute the UI face only; the mono role stays.
 
 | Role | Size | Weight | Notes |
 |---|---|---|---|
 | Page title | 20px | 600 | One per screen |
 | Section heading | 13px | 500 | Sentence case, ink. The default |
 | Section heading, emphatic | 13px | 600 | Uppercase, 0.04em tracking, slate. At most once per screen |
-| Body and table cell | 13px | 400 | |
-| Table header | 12px | 500 | Slate, uppercase, 0.04em |
+| Body and table cell | 12px | 400 | −0.01em tracking in table cells only |
+| Table header | 11px | 500 | Slate, uppercase, 0.04em |
 | Label | 12px | 500 | Slate |
 | Metric, large | 28px | 500 | Mono, tabular figures |
 | Time and count | 13px | 400 | Mono, tabular figures |
 | Caption | 11px | 400 | Slate |
+
+**Montserrat runs wide.** It is a geometric face with a large x-height, so it sets noticeably wider than Inter at the same nominal size. Two adjustments hold the density this product needs:
+
+- The dense roles drop 1px: body and table cell to 12px, table header to 11px. Montserrat at 12px reads at roughly the optical size Inter did at 13px, so nothing actually got smaller to the eye.
+- Table cells carry −0.01em tracking. Prose does not, because tightening running text works against reading, and the mono face never does, because equal character width is the entire point of it.
+
+The mono roles are unchanged. IBM Plex Mono is unaffected by the switch, and at 13px it sits level with Montserrat at 12px on the same row.
 
 Set `font-variant-numeric: tabular-nums` globally on the mono face.
 
@@ -133,12 +156,12 @@ The awaiting-me count is onboarding responses assigned to the signed-in user tha
 
 Six of the eight modules are variations on a table. Get this right once.
 
-- 36px rows, 13px text, 12px horizontal cell padding.
-- Header row: sticky, 12px uppercase slate, hairline bottom border.
+- 36px rows, 12px text, 12px horizontal cell padding. 36px is a hard height, not a minimum: cell content must not push a row taller, or the countdown column stops scanning as a column.
+- Header row: sticky, 11px uppercase slate, `--canvas` fill, and a 2px `--line` bottom border. The fill and the doubled rule are what separate the header from the first data row; a single hairline reads as just another row boundary.
 - Row separation by 1px `--line`, not by alternating fill.
 - Hover: `--canvas` fill. Selected: `--accent-sub` fill with a 2px accent left border.
 - Every column sortable. Sort state shown by a small caret in the header, never by colour.
-- Filters sit directly above the table as a single row of compact dropdowns and a text filter. Not in a collapsible panel, not in a sidebar.
+- Filters sit directly above the table as **one bordered cluster**: a single hairline box with the controls divided by hairlines, rather than each control carrying its own border and floating separately. Five separate boxes read as five unrelated things; one box reads as the filter for the table beneath it. Not in a collapsible panel, not in a sidebar.
 - Row count and active filters shown as plain text beneath the filter row: `47 programs · 2 filters active · Clear`.
 - Temporal columns right-aligned, mono. Text columns left-aligned.
 - Click anywhere on a row to open the record. No separate view button.
@@ -250,7 +273,13 @@ The Sub-vertical filter depends on the Vertical filter:
 
 Default sort: countdown ascending, so the most urgent sits at the top without anyone choosing to sort. This single default is most of what makes the screen useful.
 
-Above the table, a single row of four counts: Active, At risk, Blocked, Awaiting client. Each filters the table when clicked. These are text and number, not cards, not tiles. A programme can appear in more than one of them, so the four will not sum to the row count and are not meant to. Definitions are in SPEC.md section 7.3.
+**Column widths.** The Program column is capped at 320px and truncates with the full name on hover. Left to size itself it absorbs every spare pixel and pushes the countdown to the far right of the screen, which breaks the one scan the screen exists for: name on the left, time next to it. The columns between them stay compact for the same reason. Slack goes to the right-hand edge, past Status, where nothing is being read across.
+
+**The four counts.** Above the table: Active, At risk, Blocked, Awaiting client. Each filters the table when clicked, and a programme can appear in more than one, so the four will not sum to the row count and are not meant to. Definitions are in SPEC.md section 7.3.
+
+They are **controls and must look like controls** — a hairline border, a hover state, and a filled `--accent-sub` pressed state. Rendered as plain text they read as a caption describing the table rather than four things you can press, and nobody presses them. This is not a licence for KPI tiles: no large numerals, no trend arrows, no drop shadow, 36px high and no taller.
+
+At risk and Blocked carry their status colour on the number when above zero, `--watch` and `--critical` respectively. At zero every number is `--slate`. The word beside the number is always there, so the colour is never doing the work alone.
 
 ### 6.2 Program detail
 

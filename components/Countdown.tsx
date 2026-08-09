@@ -54,7 +54,7 @@ export function Countdown(props: CountdownProps) {
   return (
     <span className={`inline-flex items-baseline gap-2 ${className}`}>
       <span
-        className={`font-time text-body ${TONE_CLASS[result.tone]}`}
+        className={`font-time text-time ${TONE_CLASS[result.tone]}`}
         // The colour alone never carries the meaning. Section 7.
         title={
           result.tone === "critical"
