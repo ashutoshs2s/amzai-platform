@@ -138,6 +138,20 @@ begin
     jsonb_build_object('area','writes','who','admin','scenario','admin can create an organisation',
       'sql','insert into public.organisations (name,slug,vertical) values (''ZZ Test Admin Made'',''zz-test-admin-made'',''b2b_tech'') returning ''1''','expect','1'),
 
+    -- the restricted views, probed the way an attacker would
+    jsonb_build_object('area','views','who','none','scenario','anon cannot read programs_restricted',
+      'sql','select count(*)::text from public.programs_restricted','expect','DENIED'),
+    jsonb_build_object('area','views','who','none','scenario','anon cannot read organisations_restricted',
+      'sql','select count(*)::text from public.organisations_restricted','expect','DENIED'),
+    jsonb_build_object('area','views','who','specialist','scenario','error-oracle through programs_restricted leaks nothing',
+      'sql','select count(*)::text from (select 1 from public.programs_restricted where 1 / (case when name like ''ZZ Test%'' then 0 else 1 end) = 1) x','expect','0'),
+    jsonb_build_object('area','views','who','specialist','scenario','error-oracle through organisations_restricted leaks nothing',
+      'sql','select count(*)::text from (select 1 from public.organisations_restricted where 1 / (case when name like ''ZZ Test%'' then 0 else 1 end) = 1) x','expect','0'),
+    jsonb_build_object('area','views','who','admin','scenario','both restricted views are marked security_barrier',
+      'sql','select count(*)::text from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname=''public'' and c.relname like ''%_restricted'' and ''security_barrier=true'' = any(c.reloptions)','expect','2'),
+    jsonb_build_object('area','views','who','specialist','scenario','restricted view returns no rows to a non data_ops role',
+      'sql','select count(*)::text from public.organisations_restricted where name like ''ZZ Test%''','expect','0'),
+
     -- audit visibility
     jsonb_build_object('area','audit','who','admin','scenario','admin can read audit_events',
       'sql','select case when count(*) >= 0 then ''readable'' end from public.audit_events','expect','readable'),
