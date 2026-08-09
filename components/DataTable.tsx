@@ -42,8 +42,14 @@ export type DataTableProps<T> = {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string;
-  /** Plural noun for the count line: `47 programs`. */
-  noun: string;
+  /**
+   * Noun for the count line: `47 programs`, `1 program`.
+   *
+   * Given both forms so a filtered-down table reads correctly. English
+   * pluralisation is not reliably reversible, so the singular is stated rather
+   * than guessed by trimming an "s".
+   */
+  noun: { one: string; other: string };
   /** Clicking anywhere on a row opens the record. No separate view button. */
   onRowClick?: (row: T) => void;
   selectedKey?: string | null;
@@ -68,14 +74,22 @@ export type DataTableProps<T> = {
 };
 
 /** Sort caret. Shape only; never colour, per section 5. */
-function SortCaret({ direction }: { direction: SortDirection }) {
+function SortCaret({
+  direction,
+  align,
+}: {
+  direction: SortDirection;
+  align: "left" | "right";
+}) {
   return (
     <svg
       width="8"
       height="5"
       viewBox="0 0 8 5"
       aria-hidden="true"
-      className="ml-1 inline-block shrink-0"
+      // The header is reversed for right-aligned columns so the caret sits
+      // beside the numbers, so the margin has to move with it.
+      className={`inline-block shrink-0 ${align === "right" ? "mr-1" : "ml-1"}`}
     >
       <path
         d={direction === "asc" ? "M4 0 L8 5 L0 5 Z" : "M4 5 L0 0 L8 0 Z"}
@@ -146,7 +160,7 @@ export function DataTable<T>({
       {/* Row count and active filters, as plain text. Section 5. */}
       <p className="mb-2 text-label text-slate">
         <span className="font-time">{loading ? "—" : sortedRows.length}</span>{" "}
-        {noun}
+        {sortedRows.length === 1 && !loading ? noun.one : noun.other}
         {activeFilterCount > 0 && (
           <>
             {" · "}
@@ -202,7 +216,12 @@ export function DataTable<T>({
                         }`}
                       >
                         {column.header}
-                        {isSorted && <SortCaret direction={sort!.direction} />}
+                        {isSorted && (
+                          <SortCaret
+                            direction={sort!.direction}
+                            align={column.align === "right" ? "right" : "left"}
+                          />
+                        )}
                       </button>
                     ) : (
                       column.header
@@ -282,7 +301,7 @@ export function DataTable<T>({
 
         {showEmpty && !error && (
           <EmptyState
-            message={emptyMessage ?? `No ${noun} yet.`}
+            message={emptyMessage ?? `No ${noun.other} yet.`}
             actionLabel={emptyActionLabel}
             onAction={onEmptyAction}
           />

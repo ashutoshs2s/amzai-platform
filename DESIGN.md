@@ -81,7 +81,8 @@ Both are free on Google Fonts. If Amzai has brand faces, substitute the UI face 
 | Role | Size | Weight | Notes |
 |---|---|---|---|
 | Page title | 20px | 600 | One per screen |
-| Section heading | 13px | 600 | Uppercase, 0.04em tracking, slate |
+| Section heading | 13px | 500 | Sentence case, ink. The default |
+| Section heading, emphatic | 13px | 600 | Uppercase, 0.04em tracking, slate. At most once per screen |
 | Body and table cell | 13px | 400 | |
 | Table header | 12px | 500 | Slate, uppercase, 0.04em |
 | Label | 12px | 500 | Slate |
@@ -90,6 +91,12 @@ Both are free on Google Fonts. If Amzai has brand faces, substitute the UI face 
 | Caption | 11px | 400 | Slate |
 
 Set `font-variant-numeric: tabular-nums` globally on the mono face.
+
+**Headings do not shout.** The uppercase letterspaced treatment is emphatic, and emphasis stops working when it is everywhere. Use it at most once on a screen, for the one division that genuinely organises the page, and often not at all. Every other section heading is sentence case at 500: `Onboarding`, not `ONBOARDING`.
+
+Hierarchy on a dense screen comes from position and the 24px of space above a heading, not from making the type louder. A screen with nine uppercase headings has no hierarchy at all, just nine things shouting.
+
+The table header role is unaffected. Those are column labels rather than headings, they sit inside a bounded element, and their uppercase treatment is what separates the header row from the body at a glance.
 
 ### Spacing and shape
 
@@ -217,11 +224,29 @@ Everything else assembles from these.
 
 The default landing screen. A table of every programme.
 
-Columns: Program, Client, Type, Countdown, Owner, Blocking, Status. Countdown and Blocking are mono and right-aligned. Blocking shows a count, rendered in `--critical` when above zero and `--slate` when zero. Not `--mute`: a zero is a real reading, not a placeholder, and the reader has to be able to tell it apart from a one.
+Columns: Program, Vertical, Sub-vertical, Type, Countdown, Owner, Blocking, Status. Countdown and Blocking are mono and right-aligned. Blocking shows a count, rendered in `--critical` when above zero and `--slate` when zero. Not `--mute`: a zero is a real reading, not a placeholder, and the reader has to be able to tell it apart from a one.
 
 Status is the programme's own status: onboarding, active, paused, complete. There is no separate phase. One concept, one column.
 
 Owner is the delivery lead. The engagement lead appears on the programme detail screen, not here.
+
+#### Vertical and sub-vertical
+
+The client organisation is classified rather than named. Which market a programme sits in is what an operator scans for; which company it is for is one click away on the record.
+
+Three verticals. Two have sub-verticals, one does not.
+
+**B2B Tech** — Cybersecurity, Identity & Access, Cloud & Infrastructure, Data & Analytics, AI & ML, DevOps & Engineering, Networking, Observability, Storage & Backup, FinTech, MarTech, HR Tech, Supply Chain Tech, Healthcare Tech, ERP & Business Applications, Customer Experience.
+
+**Conference Organizers** — Associations, AMCs, B2B Media, Trade Show Organizers.
+
+**Law Firms** — none. The Sub-vertical cell renders an em dash in `--slate`, not an empty cell. A blank reads as missing data; a dash reads as deliberately not applicable.
+
+The Sub-vertical filter depends on the Vertical filter:
+
+- No vertical selected: every sub-vertical across both verticals that have them.
+- B2B Tech or Conference Organizers selected: that vertical's sub-verticals only, and any sub-vertical already chosen that does not belong to the new vertical is cleared rather than left behind as a filter matching nothing.
+- Law Firms selected: the control is disabled and shows a dash. It is not hidden. A control that vanishes makes the operator wonder what they did.
 
 Default sort: countdown ascending, so the most urgent sits at the top without anyone choosing to sort. This single default is most of what makes the screen useful.
 
@@ -354,6 +379,8 @@ Paste these in order. They replace prompt 6 in the Build Kit.
 
 **Program list**
 > Following DESIGN.md section 6.1, build the program list screen using the DataTable component. Columns, alignment, default sort by countdown ascending, and the four filter counts above the table exactly as specified. Do not use card or tile components for the counts.
+
+*Built at `/programs`, on hard-coded sample data in `app/programs/sample-data.ts`. That file goes when the real query arrives; the screen above it does not change.*
 
 **Program detail**
 > Following DESIGN.md section 6.2, build the program detail screen: two columns at roughly 70/30, tabbed sections on the left with the onboarding section rendering fields inline-editable with owner, assignee, due date, status pill and blocking marker, and a persistent non-scrolling right column in the order specified. Blocking bar full width above both columns. Include the unassigned count in the section header, the bulk reassign action, and the generate-onboarding flow with its disabled state, its two-step role resolution table, and the stated reasons on both, per SPEC.md section 4.

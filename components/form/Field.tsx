@@ -16,8 +16,17 @@ import type {
  * placeholder may hint at the format; it may never be the only label.
  */
 
+/*
+  Deliberately no width. Inside a Field the wrapper is a flex column, whose
+  default `align-items: stretch` already makes controls fill it. In a filter
+  row, which is a centred flex row, they take their intrinsic width instead.
+  Baking `w-full` in here would make every filter dropdown span the screen,
+  and a caller could not override it: `w-auto` and `w-full` have equal
+  specificity, so which one wins depends on stylesheet order rather than on
+  what the caller asked for.
+*/
 const CONTROL_BASE =
-  "w-full rounded-base border border-line bg-surface px-2 text-body text-ink " +
+  "rounded-base border border-line bg-surface px-2 text-body text-ink " +
   "placeholder:text-mute focus:border-accent disabled:bg-canvas disabled:text-mute";
 
 export type FieldProps = {

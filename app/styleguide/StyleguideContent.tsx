@@ -160,9 +160,12 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-6 border-t border-line pt-6">
-      <h2 className="text-section font-semibold uppercase tracking-[0.04em] text-slate">
-        {title}
-      </h2>
+      {/*
+        Sentence case at 500, per DESIGN.md section 3. The uppercase
+        letterspaced treatment is emphatic and is used at most once on a
+        screen; a page with fourteen of them has no hierarchy at all.
+      */}
+      <h2 className="text-section font-medium text-ink">{title}</h2>
       {note && <p className="mt-1 max-w-3xl text-body text-slate">{note}</p>}
       <div className="mt-4">{children}</div>
     </section>
@@ -243,7 +246,8 @@ const CONTRAST_PAIRS: {
 
 const TYPE_ROLES: { role: string; className: string; sample: string }[] = [
   { role: "Page title · 20px / 600", className: "text-page-title font-semibold", sample: "Financial Services GC Roundtable" },
-  { role: "Section heading · 13px / 600 uppercase 0.04em slate", className: "text-section font-semibold uppercase tracking-[0.04em] text-slate", sample: "Onboarding" },
+  { role: "Section heading · 13px / 500 sentence case ink · the default", className: "text-section font-medium text-ink", sample: "Onboarding" },
+  { role: "Section heading, emphatic · 13px / 600 uppercase 0.04em slate · at most once per screen", className: "text-section font-semibold uppercase tracking-[0.04em] text-slate", sample: "Onboarding" },
   { role: "Body and table cell · 13px / 400", className: "text-body", sample: "Attendee list confirmed with the client's events team." },
   { role: "Table header · 12px / 500 slate uppercase 0.04em", className: "text-table-header font-medium uppercase tracking-[0.04em] text-slate", sample: "Countdown" },
   { role: "Label · 12px / 500 slate", className: "text-label font-medium text-slate", sample: "Delivery lead" },
@@ -353,24 +357,24 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
 
   const filterRow = (
     <>
-      <Select aria-label="Type" defaultValue="all" className="h-8 w-auto">
+      <Select aria-label="Type" defaultValue="all" >
         <option value="all">All types</option>
         <option value="event">Event</option>
         <option value="retainer">Retainer</option>
       </Select>
-      <Select aria-label="Status" defaultValue="all" className="h-8 w-auto">
+      <Select aria-label="Status" defaultValue="all" >
         <option value="all">All statuses</option>
         <option value="active">Active</option>
         <option value="onboarding">Onboarding</option>
       </Select>
-      <Select aria-label="Owner" defaultValue="all" className="h-8 w-auto">
+      <Select aria-label="Owner" defaultValue="all" >
         <option value="all">All owners</option>
         <option value="priya">Priya Raman</option>
       </Select>
       <TextInput
         aria-label="Filter by name"
         placeholder="Filter by name"
-        className="h-8 w-56"
+        className="w-56"
       />
     </>
   );
@@ -731,7 +735,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
             columns={columns}
             rows={programmes}
             rowKey={(row) => row.id}
-            noun="programs"
+            noun={{ one: "program", other: "programs" }}
             defaultSort={{ key: "countdown", direction: "asc" }}
             selectedKey={selectedId}
             onRowClick={(row) => {
@@ -759,7 +763,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
                 columns={columns}
                 rows={[]}
                 rowKey={(row) => row.id}
-                noun="programs"
+                noun={{ one: "program", other: "programs" }}
                 loading
                 skeletonRows={5}
               />
@@ -769,7 +773,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
                 columns={columns}
                 rows={[]}
                 rowKey={(row) => row.id}
-                noun="programs"
+                noun={{ one: "program", other: "programs" }}
                 emptyMessage="No programs yet."
                 emptyActionLabel="New program"
                 onEmptyAction={() => undefined}
@@ -780,7 +784,7 @@ export function StyleguideContent({ nowIso }: { nowIso: string }) {
                 columns={columns}
                 rows={[]}
                 rowKey={(row) => row.id}
-                noun="programs"
+                noun={{ one: "program", other: "programs" }}
                 error="Could not load programs."
                 onRetry={() => undefined}
               />
