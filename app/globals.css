@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/*
+  Design tokens from DESIGN.md section 3 are not set up yet. That is the next
+  step, and it will replace this file. Nothing is defined here on purpose, so
+  there is nothing to unpick when the real token set arrives.
+
+  Note for later: create-next-app generates a `prefers-color-scheme: dark`
+  block here by default. It has been removed. DESIGN.md section 8 rules dark
+  mode out of scope, and a half-built dark mode is worse than none.
+*/

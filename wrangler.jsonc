@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "amzai-platform",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  }
+  // Secrets are NOT set here. This file is committed, so anything in it is
+  // public to anyone with repo access. SUPABASE_SERVICE_ROLE_KEY is set with
+  // `npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY` when we first deploy.
+  //
+  // Routes for app.amzai.events and client.amzai.events get added here when
+  // there is something to deploy.
+}

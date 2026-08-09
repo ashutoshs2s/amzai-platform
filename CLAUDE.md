@@ -50,6 +50,7 @@ The person building this is not a developer. They run the business. They can rea
 - Row level security policies never read a role directly out of `users`; that recurses. Every policy asks the `SECURITY DEFINER` helper function instead.
 - The audit trigger reads its actor from a session variable the route sets, not from `auth.uid()`. Client-facing routes run under the service role and have no database identity.
 - Client-facing surfaces use the same tokens and components as the internal app but follow DESIGN.md section 6.3 and 6.4, not section 5 density rules. They must work on a phone.
+- This is Next.js 16 with the App Router and Turbopack. It differs from older Next.js in ways that are easy to get wrong from memory. Check `node_modules/next/dist/docs/` before writing framework code rather than assuming.
 - When something is uncertain, say so rather than picking silently.
 
 ## When asked to review
