@@ -110,7 +110,7 @@ No gradients. No decorative icons. Icons only where they carry meaning, from Luc
 
 **Fixed top bar**, 52px, containing: global search (keyboard shortcut `/`), the current program context when inside one, and a single count of items awaiting the current user. That count is the most important element in the top bar and should be the only thing there that can turn amber or red.
 
-The awaiting-me count is onboarding responses assigned to the signed-in user that are neither approved nor N/A, across every programme they can see. Defined in SPEC.md section 6.3. It is a count and a link, not a dropdown of items.
+The awaiting-me count is onboarding responses assigned to the signed-in user that are neither approved nor N/A, across every programme they can see. Defined in SPEC.md section 7.3. It is a count and a link, not a dropdown of items.
 
 **Content area** on canvas background, 24px padding, max width unconstrained. This is a dense internal tool; do not centre content in a 1200px column and waste half the screen.
 
@@ -146,7 +146,7 @@ The most-used element in the platform. Mono, tabular.
 
 Format: `T-24d` for events, `W6 of 13` for retainers. Absolute date shown beside it in slate at 12px.
 
-Colour thresholds, applied to the countdown text itself. SPEC.md section 6.2 holds the arithmetic; this is what it looks like.
+Colour thresholds, applied to the countdown text itself. SPEC.md section 7.2 holds the arithmetic; this is what it looks like.
 
 Events, counting to `fixed_milestone_date`:
 - More than 30 days: `--ink`
@@ -204,7 +204,7 @@ Owner is the delivery lead. The engagement lead appears on the programme detail 
 
 Default sort: countdown ascending, so the most urgent sits at the top without anyone choosing to sort. This single default is most of what makes the screen useful.
 
-Above the table, a single row of four counts: Active, At risk, Blocked, Awaiting client. Each filters the table when clicked. These are text and number, not cards, not tiles. A programme can appear in more than one of them, so the four will not sum to the row count and are not meant to. Definitions are in SPEC.md section 6.3.
+Above the table, a single row of four counts: Active, At risk, Blocked, Awaiting client. Each filters the table when clicked. These are text and number, not cards, not tiles. A programme can appear in more than one of them, so the four will not sum to the row count and are not meant to. Definitions are in SPEC.md section 7.3.
 
 ### 6.2 Program detail
 
@@ -215,6 +215,12 @@ Where the team spends most of its time. Two columns.
 Owner is the party, client or Amzai. Assignee is the member of staff, and is what drives the awaiting-me count, so it is editable inline like everything else.
 
 Where the client answered a field, the attribution shows beneath the response in 11px mute: `Answered by Priya Raman · 12 Aug`. Where Amzai answered, the same line names the staff member. This is the only place the difference is visible and it should not need hunting for.
+
+**Unassigned count.** Beside the section completion counts in the Onboarding tab header: `Onboarding · 14 of 19 · 3 unassigned`. The unassigned figure is mono and rendered `--watch` when above zero, `--mute` when zero, and it filters to those fields when clicked. Work nobody owns appears in no one's awaiting-me count, so it has to be visible here or it is visible nowhere. Do not fold it into the completion count and do not hide it behind a filter dropdown.
+
+**Bulk reassign.** One action in the Onboarding tab: move every response assigned to one person to another. Two selects and a confirm, for when someone leaves or covers. It is a bulk write, so it names the count in the confirm step — `Reassign 12 responses from Priya Raman to Daniel Okafor` — and follows the destructive-action rule in section 5 only if it exceeds a screenful. Otherwise a plain confirm is enough, because it is reversible.
+
+**Generating onboarding.** Before generation, the Onboarding tab shows the empty state naming the selected template and a `Generate onboarding` button. Until at least one team member is assigned, the button is disabled and the reason sits beside it in plain words: `Assign at least one team member before generating. Fields are assigned by role.` Never a disabled button with no explanation, and never a generate that silently produces unassigned fields.
 
 **Right, persistent, roughly 30%.** Does not scroll away. Contains, in this order: the countdown, the next milestone with date, the blocking item count, the named client approver, the assigned team, and the last five audit entries in plain language. This column is the answer to "what is the state of this program" without reading anything else.
 
@@ -260,7 +266,7 @@ Larger than internal: 15px input text, 44px field height, 16px vertical gap betw
 
 **Outstanding.** Above the fields, a plain list of what is still to answer, each item a link to that field. Text and links, not cards.
 
-**Amzai-owned fields are not rendered at all.** Not greyed, not collapsed, not present. See SPEC section 5.3.
+**Amzai-owned fields are not rendered at all.** Not greyed, not collapsed, not present. See SPEC section 6.3.
 
 **Nothing else on the page.** No navigation, no other programme, no link into the dashboard, no footer beyond a single line naming who to contact with a question. A client contact can reach exactly one programme's form and nothing else.
 
@@ -306,13 +312,13 @@ Paste these in order. They replace prompt 6 in the Build Kit.
 > Following DESIGN.md section 6.1, build the program list screen using the DataTable component. Columns, alignment, default sort by countdown ascending, and the four filter counts above the table exactly as specified. Do not use card or tile components for the counts.
 
 **Program detail**
-> Following DESIGN.md section 6.2, build the program detail screen: two columns at roughly 70/30, tabbed sections on the left with the onboarding section rendering fields inline-editable with owner, due date, status pill and blocking marker, and a persistent non-scrolling right column in the order specified. Blocking bar full width above both columns.
+> Following DESIGN.md section 6.2, build the program detail screen: two columns at roughly 70/30, tabbed sections on the left with the onboarding section rendering fields inline-editable with owner, assignee, due date, status pill and blocking marker, and a persistent non-scrolling right column in the order specified. Blocking bar full width above both columns. Include the unassigned count in the section header, the bulk reassign action, and the generate-onboarding button with its disabled state and stated reason per SPEC.md section 4.
 
 **Client dashboard**
 > Following DESIGN.md section 6.3, build the client dashboard as a standalone page with no navigation and no left rail, served from a token URL at client.amzai.events/{org-slug}/{program-slug}. Large mono metrics with freshness markers, a single horizontal progress bar built without a chart library, a written summary given generous room, and the next milestone. Must work on a phone.
 
 **Client onboarding form**
-> Following DESIGN.md section 6.4 and SPEC.md section 5, build the client onboarding form at client.amzai.events/{org-slug}/{program-slug}/onboarding. Three screens: email entry with an identical neutral response for every address, expired-link, and the form itself. Use the existing tokens and components. Single 720px column, larger touch targets, saves on blur per field, progress line and outstanding list, blocking bar, Amzai-owned fields not rendered. No Supabase Auth and no client account. Must work at 360px.
+> Following DESIGN.md section 6.4 and SPEC.md section 6, build the client onboarding form at client.amzai.events/{org-slug}/{program-slug}/onboarding. Three screens: email entry with an identical neutral response for every address, expired-link, and the form itself. Use the existing tokens and components. Single 720px column, larger touch targets, saves on blur per field, progress line and outstanding list, blocking bar, Amzai-owned fields not rendered. No Supabase Auth and no client account. Must work at 360px.
 
 **Review**
 > Review every screen you have built against DESIGN.md, section by section. List anything that deviates, including anything in section 8 that has crept in. Fix each one and tell me what you changed.

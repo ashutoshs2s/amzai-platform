@@ -12,7 +12,7 @@ An internal operating system for Amzai, a B2B executive events and demand genera
 There are two of them:
 
 - The **programme dashboard**, generated per programme, read only, reached by a long-lived access token.
-- The **onboarding form**, where a client answers their own onboarding fields. This one is a write surface, so it is protected by an email-verified session on top of the token. The client enters an email address, and if that address is an active client contact on that programme they receive a one-time link valid for 60 minutes. Following it opens the form for that programme only. See section 5.
+- The **onboarding form**, where a client answers their own onboarding fields. This one is a write surface, so it is protected by an email-verified session on top of the token. The client enters an email address, and if that address is an active client contact on that programme they receive a one-time link valid for 60 minutes. Following it opens the form for that programme only. See section 6.
 
 That session is built in our own tables. It is not Supabase Auth and it creates no account.
 
@@ -24,7 +24,7 @@ That session is built in our own tables. It is not Supabase Auth and it creates 
 
 Build in this order. Finish and verify each before starting the next.
 
-1. **Clients and Programs.** The spine. Organisations, programmes, users, assignments.
+1. **Clients and Programs.** The spine. Organisations, programmes, users, assignments. Includes the creation sequence in section 4, which module 2 depends on.
 2. **Onboarding.** Templated question sets per programme type and industry. Every field has an owner, due date, status and blocking flag. Completed onboarding generates the task set. Includes the client-completed onboarding form on `client.amzai.events`: Amzai generates a link per programme and emails it to named client contacts, who answer their own fields directly. Answers save as they go and need not be finished in one sitting.
 3. **Delivery Operations.** Task engine from templates, portfolio calendar, attendee tracking, risk flags with numeric triggers.
 4. **Client Dashboards.** Generated per programme, token URL, no login.
@@ -52,7 +52,7 @@ Build only these tables first.
 
 `fixed_milestone_date` is the date that does not move. Event countdowns calculate from it.
 
-`gate_date` is the point in a retainer after which remaining time is short. It drives the retainer countdown colour. Nullable, because not every programme has one. See section 6.
+`gate_date` is the point in a retainer after which remaining time is short. It drives the retainer countdown colour. Nullable, because not every programme has one. See section 7.
 
 `delivery_lead_id` is the programme's owner for display purposes. It is the single name in the Owner column on the programme list.
 
@@ -71,9 +71,11 @@ Build only these tables first.
 `id` uuid pk · `name` text · `program_type` text · `industry` text nullable, null means applies to all · `version` integer · `active` boolean · `created_at`, `updated_at` timestamptz
 
 ### onboarding_template_fields
-`id` uuid pk · `template_id` uuid fk · `section` text · `sort_order` integer · `question` text · `guidance` text · `default_owner` text (client, amzai, both) · `default_offset_type` text (weeks_from_start, days_before_milestone) · `default_offset_value` integer · `blocking` boolean · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `template_id` uuid fk · `section` text · `sort_order` integer · `question` text · `guidance` text · `default_owner` text (client, amzai, both) · `default_assignee_role` text nullable (engagement_lead, delivery_lead, specialist, data_ops) · `default_offset_type` text (weeks_from_start, days_before_milestone) · `default_offset_value` integer · `blocking` boolean · `created_at`, `updated_at` timestamptz
 
-A due date is expressed as an offset, not as a week label, so it resolves to a real date without anyone interpreting it. `weeks_from_start` counts forward from the programme's `start_date`; `days_before_milestone` counts back from `fixed_milestone_date`. Retainers and dedicated teams use the first, events use the second. The offset is resolved into `onboarding_responses.due_date` once, when the response row is created. See section 6.
+A due date is expressed as an offset, not as a week label, so it resolves to a real date without anyone interpreting it. `weeks_from_start` counts forward from the programme's `start_date`; `days_before_milestone` counts back from `fixed_milestone_date`. Retainers and dedicated teams use the first, events use the second. The offset is resolved into `onboarding_responses.due_date` once, when the response row is created. See section 7.
+
+`default_assignee_role` says which job on the programme this field belongs to, not which person. The person is resolved at generation from `program_assignments`. Same four values as `role_on_program`, and nullable for fields that are nobody's by default. See section 4.
 
 ### onboarding_responses
 `id` uuid pk · `program_id` uuid fk · `template_field_id` uuid fk · `response` text · `owner` text (client, amzai, both) · `assignee_id` uuid fk users nullable · `due_date` date · `status` text (not_started, in_progress, submitted, approved, blocked, na) · `blocking` boolean · `answer_source` text (amzai_written, client_written, imported) · `answered_by` uuid fk users nullable · `answered_by_contact_id` uuid fk client_contacts nullable · `answered_at` timestamptz nullable · `tasks_generated` boolean · `created_at`, `updated_at` timestamptz
@@ -82,7 +84,7 @@ A due date is expressed as an offset, not as a week label, so it resolves to a r
 
 Who answered is recorded explicitly rather than inferred. `answer_source` says how the answer arrived. When it is `client_written`, `answered_by_contact_id` names the client contact who submitted it and `answered_by` is null. When it is `amzai_written`, `answered_by` names the staff user and `answered_by_contact_id` is null. At most one of the two is ever populated. `answered_at` is when the answer was last submitted, which is not the same as `updated_at`, since a status change by Amzai also touches the row.
 
-`owner` decides what the client sees on the onboarding form. See section 5.
+`owner` decides what the client sees on the onboarding form. See section 6.
 
 ### client_contacts
 
@@ -144,7 +146,54 @@ Every client answer and every onboarding link request is attributed to a named c
 
 Not every audit row comes from a table write. Reads of a client-facing surface are logged too, because who saw what and when carries commercial weight. A dashboard view writes `action` `dashboard_view` against the programme.
 
-## 4. Access rules
+## 4. Programme creation and onboarding generation
+
+The order matters, and it is not a suggestion. Done out of order, a programme generates with every onboarding field unassigned, and the awaiting-me count that drives the whole platform reads zero for everyone from day one.
+
+1. **Create the organisation**, including its industry.
+2. **Create the programme**, including its type and dates.
+3. **Assign the Amzai team** in `program_assignments`, each with a `role_on_program`.
+4. **Generate onboarding.**
+
+### 4.1 Selecting the template
+
+The organisation's industry and the programme's type select the template. No one types a template name.
+
+- Match on `program_type` and `industry`.
+- If no industry-specific template exists, fall back to the one for that `program_type` where `industry` is null.
+- Only `active` templates are candidates.
+- Where more than one still matches, the highest `version` wins.
+
+The admin sees which template was selected before generating, and may override it with any other active template. Once generated, the choice is recorded on `programs.onboarding_template_id` and does not change.
+
+### 4.2 Generation is blocked until the team is assigned
+
+**Onboarding cannot be generated until `program_assignments` holds at least one row for that programme.** The generate action is unavailable until then, and says why. This is a block, not a warning to click through.
+
+The reason, recorded so it is not softened later: without an assigned team there is no one for `default_assignee_role` to resolve to, so every field generates unassigned, and unassigned work is invisible work. Blocking costs one step at setup. Repairing it costs a field-by-field pass across a live programme.
+
+### 4.3 Assigning fields at generation
+
+Each response takes its `assignee_id` from whoever holds the field's `default_assignee_role` on that programme.
+
+- Fields where `owner` is `client` get no assignee.
+- Fields where `default_assignee_role` is null get no assignee.
+- Fields whose role is not filled on this programme get no assignee, and are reported as unassigned.
+- Where two people hold the same role on one programme, the field goes to the one with the higher `allocation_percent`, ties broken by the earlier assignment. Deterministic, usually right, and always correctable inline.
+
+### 4.4 Reassignment
+
+`assignee_id` is editable inline on any response, at any time.
+
+Changing someone's `role_on_program` does **not** move existing assignments. Those were resolved at generation and moving them silently would change who owes what without anyone being told.
+
+For the real cases — someone leaves, someone covers — the programme detail screen carries a bulk action: reassign every response currently assigned to one person to another. It writes one audit row per response changed, so the trail stays complete rather than recording a single vague bulk event.
+
+### 4.5 Unassigned is visible
+
+The programme detail screen shows an unassigned count beside the section completion counts. A field nobody owns is the exact failure this mechanism exists to prevent, so it is counted in plain sight rather than discovered by filtering.
+
+## 5. Access rules
 
 All users are internal staff. Row level security on every table.
 
@@ -157,9 +206,9 @@ A policy on `users` that reads a role out of `users` recurses. Role lookups ther
 
 Client-facing surfaces never touch the database from the browser. They read and write through server-side routes on `client.amzai.events` that run under the service role, which bypasses row level security. The token check and the session check in those routes are therefore the entire access control, and every one of them must verify the programme in the URL matches the programme the token or session was issued for. A route that trusts the slug rather than the token is a data breach.
 
-## 5. Client access
+## 6. Client access
 
-### 5.1 URLs
+### 6.1 URLs
 
 ```
 client.amzai.events/{org-slug}/{program-slug}                    dashboard, access token
@@ -168,7 +217,7 @@ client.amzai.events/{org-slug}/{program-slug}/onboarding         onboarding form
 
 The slugs are for a client reading the URL and for our own support. They carry no authority. Two programmes with guessable slugs are still unreachable without the token.
 
-### 5.2 Requesting an onboarding link
+### 6.2 Requesting an onboarding link
 
 1. Amzai generates the onboarding link for a programme and emails it to the client contacts on that programme.
 2. The client opens it and is asked for their email address.
@@ -179,7 +228,7 @@ The slugs are for a client reading the URL and for our own support. They carry n
 
 Rate limits: five link requests per email address per hour, twenty per IP address per hour. Exceeding either gives the same neutral response, with no indication that a limit was reached. Tokens are single use and expire in 60 minutes. Sessions last seven days.
 
-### 5.3 What the client sees
+### 6.3 What the client sees
 
 The form shows only fields where `owner` is `client` or `both`. Fields owned by Amzai are **hidden entirely, not shown read-only.**
 
@@ -187,7 +236,7 @@ The reasoning, so it is not undone later: Amzai answers are written for internal
 
 The form saves each answer as it is entered. It shows overall progress, what is still outstanding, and which outstanding items are blocking. It never requires completion in one sitting.
 
-### 5.4 What is recorded
+### 6.4 What is recorded
 
 Every answer written by a client sets `answer_source` to `client_written`, `answered_by_contact_id` to the submitting contact, and `answered_at` to the time of submission.
 
@@ -195,11 +244,11 @@ Every link request and every client answer writes to `audit_events` with the con
 
 On the programme detail screen Amzai sees, per field, whether the client or Amzai answered, which named contact it was, and when.
 
-## 6. Derived values
+## 7. Derived values
 
 Nothing here is stored except `due_date`. These are the definitions the interface computes from, and they are written here rather than in DESIGN.md so there is one answer rather than one per screen.
 
-### 6.1 Due date
+### 7.1 Due date
 
 Resolved once, when the response row is created from its template field, and stored on `onboarding_responses.due_date`. It does not recompute afterwards, so moving a programme's dates does not silently move every due date underneath it.
 
@@ -208,7 +257,7 @@ Resolved once, when the response row is created from its template field, and sto
 
 Retainers, dedicated teams, series and research use the first. Events use the second.
 
-### 6.2 Countdown
+### 7.2 Countdown
 
 **Events**, from `fixed_milestone_date`:
 
@@ -229,7 +278,7 @@ Total weeks is the number of whole weeks between `start_date` and `end_date`. Cu
 | On or after `gate_date` | watch |
 | Past `end_date` | critical |
 
-### 6.3 Counts
+### 7.3 Counts
 
 **Blocking count**, per programme. Onboarding responses where `blocking` is true and `status` is not `approved`. Note this counts blocking items that are merely unfinished, not only ones that are late.
 
@@ -244,7 +293,7 @@ Total weeks is the number of whole weeks between `start_date` and `end_date`. Cu
 
 **Awaiting me**, the single count in the top bar. Onboarding responses where `assignee_id` is the signed-in user and `status` is neither `approved` nor `na`, across every programme they can see.
 
-## 7. Rules that carry commercial weight
+## 8. Rules that carry commercial weight
 
 **Audit.** Every create, update and delete is logged with actor, timestamp, and before and after values. Built into the write path from the first table, not added later.
 
