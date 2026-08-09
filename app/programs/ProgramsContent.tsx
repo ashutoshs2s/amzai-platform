@@ -235,8 +235,9 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     {
       key: "status",
       header: "Status",
-      // No width: this last column absorbs the slack, so it lands at the
-      // right-hand edge where nothing is being read across.
+      // Sized to its content like every other column. The table ends here
+      // rather than stretching, so there is no slack to absorb.
+      width: "120px",
       cell: (row) => <StatusPill status={row.status} />,
       sortValue: (row) => row.status,
     },
@@ -250,6 +251,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
     <div className="inline-flex flex-wrap items-center divide-x divide-line overflow-hidden rounded-base border border-line bg-surface">
       <Select
         bare
+        className="w-[120px]"
         aria-label="Vertical"
         value={vertical}
         onChange={(event) => changeVertical(event.target.value as VerticalId | "all")}
@@ -268,6 +270,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
       */}
       <Select
         bare
+        className="w-[136px]"
         aria-label="Sub-vertical"
         value={lawFirmsSelected ? NO_SUB_VERTICAL : subVertical}
         disabled={lawFirmsSelected}
@@ -292,6 +295,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
 
       <Select
         bare
+        className="w-[92px]"
         aria-label="Type"
         value={type}
         onChange={(event) => setType(event.target.value)}
@@ -306,6 +310,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
 
       <Select
         bare
+        className="w-[100px]"
         aria-label="Status"
         value={status}
         onChange={(event) => setStatus(event.target.value)}
@@ -319,6 +324,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
 
       <Select
         bare
+        className="w-[96px]"
         aria-label="Owner"
         value={owner}
         onChange={(event) => setOwner(event.target.value)}
@@ -337,13 +343,13 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
         placeholder="Filter by name"
         value={nameFilter}
         onChange={(event) => setNameFilter(event.target.value)}
-        className="w-52"
+        className="w-[136px]"
       />
     </div>
   );
 
   return (
-    <main className="px-6 py-6">
+    <main className="max-w-content px-6 py-6">
       <h1 className="text-page-title font-semibold">Programs</h1>
 
       {/*
@@ -352,7 +358,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
         numerals, no trend arrows, no shadow. A programme can appear in more
         than one, so these will not sum to the row count.
       */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-1">
         {countValues.map((count) => {
           const isActive = countFilter === count.id;
           const carriesStatus = count.value > 0 && count.tone !== undefined;
@@ -362,7 +368,7 @@ export function ProgramsContent({ nowIso }: { nowIso: string }) {
               type="button"
               aria-pressed={isActive}
               onClick={() => setCountFilter(isActive ? null : count.id)}
-              className={`inline-flex h-8 items-center gap-2 rounded-base border px-3 transition-colors ${
+              className={`inline-flex h-8 items-center gap-2 rounded-base border px-2 transition-colors ${
                 isActive
                   ? "border-accent bg-accent-sub text-ink"
                   : "border-line bg-surface text-ink hover:bg-canvas"

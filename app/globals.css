@@ -46,6 +46,7 @@
   --row-height: 36px; /* table rows */
   --rail-width: 220px;
   --topbar: 52px;
+  --content-max: 1500px; /* content area cap, left-aligned */
 }
 
 @theme inline {
@@ -105,6 +106,7 @@
   --spacing-row: var(--row-height);
   --spacing-rail: var(--rail-width);
   --spacing-topbar: var(--topbar);
+  --spacing-content: var(--content-max);
 
   /* The only shadow in the system. Dropdowns and modals, nowhere else. */
   --shadow-overlay: 0 4px 12px rgba(20, 22, 26, 0.08);

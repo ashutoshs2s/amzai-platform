@@ -126,10 +126,11 @@ The table header role is unaffected. Those are column labels rather than heading
 4px base unit. Use 4, 8, 12, 16, 24, 32, 48 only.
 
 ```
---radius:      4px     /* everything. no exceptions */
---row-height:  36px    /* table rows */
---rail-width:  220px
---topbar:      52px
+--radius:       4px     /* everything. no exceptions */
+--row-height:   36px    /* table rows */
+--rail-width:   220px
+--topbar:       52px
+--content-max:  1500px  /* content area cap, left-aligned */
 ```
 
 No shadows anywhere except dropdowns and modals, where use a single hairline plus `0 4px 12px rgba(20,22,26,0.08)`. Panels and tables are separated by borders, not elevation.
@@ -146,7 +147,9 @@ No gradients. No decorative icons. Icons only where they carry meaning, from Luc
 
 The awaiting-me count is onboarding responses assigned to the signed-in user that are neither approved nor N/A, across every programme they can see. Defined in SPEC.md section 7.3. It is a count and a link, not a dropdown of items.
 
-**Content area** on canvas background, 24px padding, max width unconstrained. This is a dense internal tool; do not centre content in a 1200px column and waste half the screen.
+**Content area** on canvas background, 24px padding, capped at 1500px and **left-aligned, not centred**.
+
+Both failure modes are real. Unconstrained, a wide table stretches to the window and leaves a band of empty space past the last column that reads as unfinished rather than spacious. Centred in a narrow column, a dense internal tool wastes half the screen and drifts away from the rail. Capped and left-aligned, every screen starts in the same place and the table ends where its content ends.
 
 ---
 
@@ -156,7 +159,8 @@ The awaiting-me count is onboarding responses assigned to the signed-in user tha
 
 Six of the eight modules are variations on a table. Get this right once.
 
-- 36px rows, 12px text, 12px horizontal cell padding. 36px is a hard height, not a minimum: cell content must not push a row taller, or the countdown column stops scanning as a column.
+- 36px rows, 12px text, 12px horizontal cell padding. 36px is a hard height, not a minimum: cell content must not push a row taller, or the countdown column stops scanning as a column. Note that `height` on a `<td>` is a *minimum* in CSS — the cell grows to fit its line box — so the height has to be pinned by a fixed-height box inside the cell, not by the cell itself.
+- Filters are quieter than the data they filter. Controls sit at 32px against 36px rows, and each control is sized to the label it shows at rest, not to its longest option. A native `<select>` sizes itself to its widest item by default, which is how a six-filter row silently grows to two thirds of the screen.
 - Header row: sticky, 11px uppercase slate, `--canvas` fill, and a 2px `--line` bottom border. The fill and the doubled rule are what separate the header from the first data row; a single hairline reads as just another row boundary.
 - Row separation by 1px `--line`, not by alternating fill.
 - Hover: `--canvas` fill. Selected: `--accent-sub` fill with a 2px accent left border.

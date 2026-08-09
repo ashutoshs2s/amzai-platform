@@ -35,7 +35,7 @@ const CONTROL_BASE =
   drops its own border rather than drawing a second one inside the first.
 */
 const CONTROL_BARE =
-  "bg-transparent px-2 text-body text-ink placeholder:text-mute " +
+  "bg-transparent px-1 text-body text-ink placeholder:text-mute " +
   "disabled:text-mute focus:outline-offset-[-2px]";
 
 function controlClass(bare: boolean, invalid: boolean, extra: string) {

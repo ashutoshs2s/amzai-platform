@@ -193,10 +193,20 @@ export function DataTable<T>({
         )}
       </p>
 
-      <div className="overflow-x-auto border border-line bg-surface">
+      {/*
+        A fixed-layout table sizes to the sum of its columns and stops there,
+        so the border wraps the data rather than stretching to the container
+        and leaving a fat empty column at the end. An auto table still fills
+        its container, which is what a table with no declared widths wants.
+      */}
+      <div
+        className={`overflow-x-auto border border-line bg-surface ${
+          layout === "fixed" ? "w-fit max-w-full" : ""
+        }`}
+      >
         <table
-          className={`w-full border-collapse text-body ${
-            layout === "fixed" ? "table-fixed" : ""
+          className={`border-collapse text-body ${
+            layout === "fixed" ? "w-auto table-fixed" : "w-full"
           }`}
         >
           <thead>
@@ -255,11 +265,13 @@ export function DataTable<T>({
               Array.from({ length: skeletonRows }).map((_, index) => (
                 <tr key={`skeleton-${index}`} className="border-b border-line">
                   {columns.map((column) => (
-                    <td
+                      <td
                       key={column.key}
-                      className="h-row px-3 py-0 align-middle first:border-l-2 first:border-l-transparent"
+                      className="p-0 align-middle first:border-l-2 first:border-l-transparent"
                     >
-                      <span className="block h-[9px] w-full max-w-[140px] rounded-base bg-line" />
+                      <div className="flex h-[calc(var(--row-height)-1px)] items-center px-3">
+                        <span className="block h-[9px] w-full max-w-[140px] rounded-base bg-line" />
+                      </div>
                     </td>
                   ))}
                 </tr>
@@ -293,13 +305,14 @@ export function DataTable<T>({
                     {columns.map((column, columnIndex) => (
                       <td
                         key={column.key}
-                        // whitespace-nowrap keeps 36px a hard height rather
-                        // than a minimum: a cell that wraps to two lines makes
-                        // the row taller and the countdown column stops
-                        // scanning as a column.
-                        className={`h-row whitespace-nowrap px-3 py-0 align-middle ${
-                          column.truncate ? "truncate" : ""
-                        } ${column.align === "right" ? "text-right" : "text-left"} ${
+                        /*
+                          `height` on a table cell is a minimum, not a maximum:
+                          the cell grows to whatever its line box needs, so the
+                          row height ends up decided by font metrics. The fixed
+                          box below is what actually pins it. The height here
+                          only stops a short row collapsing.
+                        */
+                        className={`whitespace-nowrap p-0 align-middle ${
                           columnIndex === 0
                             ? isSelected
                               ? "border-l-2 border-l-accent"
@@ -307,7 +320,20 @@ export function DataTable<T>({
                             : ""
                         }`}
                       >
-                        {column.cell(row)}
+                        {/*
+                          --row-height is the pitch: the row plus its separating
+                          rule. The box is one pixel short of it so rows repeat
+                          every 36px exactly, rather than every 37.
+                        */}
+                        <div
+                          className={`flex h-[calc(var(--row-height)-1px)] items-center overflow-hidden px-3 ${
+                            column.align === "right" ? "justify-end" : ""
+                          }`}
+                        >
+                          <span className={column.truncate ? "min-w-0 truncate" : ""}>
+                            {column.cell(row)}
+                          </span>
+                        </div>
                       </td>
                     ))}
                   </tr>
