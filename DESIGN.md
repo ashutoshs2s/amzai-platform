@@ -9,7 +9,9 @@ Paste-ready prompts are in the appendix.
 
 ## 1. What this product is
 
-An operations console for a team running executive events and demand programmes for clients. Five to fifteen operators live in it daily under time pressure. Clients see one generated dashboard.
+An operations console for a team running executive events and demand programmes for clients. Five to fifteen operators live in it daily under time pressure, on `app.amzai.events`.
+
+Clients see two surfaces, both on `client.amzai.events`, both reached by token and neither behind a login: a generated dashboard, and the onboarding form where they answer their own onboarding fields. Different rules apply to both. See sections 6.3 and 6.4.
 
 **The single job of every internal screen:** let an operator find what is off track, and act on it, without hunting.
 
@@ -201,13 +203,49 @@ The blocking bar from section 5 sits above both columns, full width.
 
 ### 6.3 Client dashboard
 
-The only external surface. Different rules apply: this one is presentation.
+One of the two external surfaces. Different rules apply: this one is presentation.
+
+At `client.amzai.events/{org-slug}/{program-slug}` plus the access token.
 
 Single column, generous spacing, no left rail, no navigation. Amzai mark top left, client name top right, generated date beneath.
 
 Three to five metrics as large mono figures with plain labels beneath, each carrying its freshness marker. Then progress against target as a single horizontal bar, not a chart library. Then a short written summary, which is the most valuable thing on the page and should be given the most room. Then next milestone with its date.
 
 No interactive filters, no drilldowns, no navigation off the page. It is a report that happens to be on the web, and it should read as considered rather than as a screenshot of an internal tool.
+
+### 6.4 Client onboarding form
+
+The second external surface, and the only one a client writes to. At `client.amzai.events/{org-slug}/{program-slug}/onboarding` plus the one-time token.
+
+**Same tokens, same components, different posture.** Colours, type scale, radius, status pills, the mono rule for time: all unchanged, so it is visibly the same system. But the density rules in section 5 do not apply. This person is not an operator, has not been trained, is doing this once, and is quite likely on a phone between meetings. Give it room.
+
+**Three screens.**
+
+1. **Email entry.** One field, one button, one sentence saying what will happen. After submission, the same confirming message every time: *If that address is on the list for this programme, a link is on its way. It expires in 60 minutes.* Never a different message for an unknown address. Never a hint that the address was or was not recognised.
+2. **Link expired or already used.** Says so plainly and offers to send another. Not an error state, because it is the expected outcome of coming back tomorrow.
+3. **The form.**
+
+**The form.**
+
+Single column, max width 720px, centred. This is the one place in the platform where a constrained column is correct, because it is prose and answers rather than a table.
+
+Header: client name, programme name, and the milestone date in mono. Beneath it, a progress line: `12 of 19 answered · 3 outstanding are blocking`. Counts in mono. This line stays visible as they scroll.
+
+Fields render grouped by their template section, in template order, one per row and full width. Each field shows the question at 15px ink, the guidance beneath at 13px slate, then the input. Due date in mono, right of the question. Status pill only when the status is not `not_started`, so a fresh form is not a wall of grey pills.
+
+Larger than internal: 15px input text, 44px field height, 16px vertical gap between fields, 32px between sections. Field text must be at least 16px on mobile viewports or iOS will zoom the page on focus.
+
+**Saving.** Saves on blur, per field. A quiet `Saved` in `--clear` beside the field for two seconds, the same as internal inline editing. Never a toast, never a modal, never a save button at the bottom of the page. If a save fails, say so beside that field and keep the text the client typed. Losing a client's typing is the worst thing this screen can do.
+
+**Blocking items** use the section 5 bar, full width above the form: `3 outstanding items are blocking your programme. The oldest is Attendee list, due 12 August.` and a link that scrolls to the first one. Same fill and border as internal. Wording addressed to the client, not to an operator.
+
+**Outstanding.** Above the fields, a plain list of what is still to answer, each item a link to that field. Text and links, not cards.
+
+**Amzai-owned fields are not rendered at all.** Not greyed, not collapsed, not present. See SPEC section 5.3.
+
+**Nothing else on the page.** No navigation, no other programme, no link into the dashboard, no footer beyond a single line naming who to contact with a question. A client contact can reach exactly one programme's form and nothing else.
+
+**Phone.** Must work at 360px. This is the likeliest place it will be opened.
 
 ---
 
@@ -220,7 +258,8 @@ Not optional, not announced.
 - Contrast 4.5:1 minimum on all text. Check the amber, which is the one at risk.
 - Status never communicated by colour alone. Always a word beside it.
 - `prefers-reduced-motion` respected. Transitions capped at 150ms regardless.
-- Internal screens are desktop-first and need not work below 1024px. The client dashboard must work on a phone.
+- Internal screens are desktop-first and need not work below 1024px. Both client surfaces, the dashboard and the onboarding form, must work on a phone down to 360px.
+- Nothing on a client surface reveals another client, another programme, or whether an email address is on a list.
 
 ---
 
@@ -229,6 +268,8 @@ Not optional, not announced.
 Recorded because they are the defaults an AI will otherwise reach for.
 
 Card grids where a table would do. KPI tiles with large coloured numbers and trend arrows. Gradient headers. Illustrated empty states. Chart libraries for a single percentage. Collapsible sidebars that hide the filters. Modals for editing one field. Toast notifications for routine saves. Dark mode. Rounded corners above 4px. Drop shadows on static panels. Emoji in the interface.
+
+On client surfaces, additionally: a login screen, a password field, a "create an account" prompt, or a "remember me" checkbox. A message that tells the visitor their email address was not recognised. A save button at the bottom of the onboarding form. Any link that leads off the programme they were given.
 
 ---
 
@@ -249,7 +290,10 @@ Paste these in order. They replace prompt 6 in the Build Kit.
 > Following DESIGN.md section 6.2, build the program detail screen: two columns at roughly 70/30, tabbed sections on the left with the onboarding section rendering fields inline-editable with owner, due date, status pill and blocking marker, and a persistent non-scrolling right column in the order specified. Blocking bar full width above both columns.
 
 **Client dashboard**
-> Following DESIGN.md section 6.3, build the client dashboard as a standalone page with no navigation and no left rail, served from a token URL. Large mono metrics with freshness markers, a single horizontal progress bar built without a chart library, a written summary given generous room, and the next milestone. Must work on a phone.
+> Following DESIGN.md section 6.3, build the client dashboard as a standalone page with no navigation and no left rail, served from a token URL at client.amzai.events/{org-slug}/{program-slug}. Large mono metrics with freshness markers, a single horizontal progress bar built without a chart library, a written summary given generous room, and the next milestone. Must work on a phone.
+
+**Client onboarding form**
+> Following DESIGN.md section 6.4 and SPEC.md section 5, build the client onboarding form at client.amzai.events/{org-slug}/{program-slug}/onboarding. Three screens: email entry with an identical neutral response for every address, expired-link, and the form itself. Use the existing tokens and components. Single 720px column, larger touch targets, saves on blur per field, progress line and outstanding list, blocking bar, Amzai-owned fields not rendered. No Supabase Auth and no client account. Must work at 360px.
 
 **Review**
 > Review every screen you have built against DESIGN.md, section by section. List anything that deviates, including anything in section 8 that has crept in. Fix each one and tell me what you changed.
