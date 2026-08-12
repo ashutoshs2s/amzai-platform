@@ -14,13 +14,13 @@
  * `xlsx` is a devDependency and is referenced only here, never by the app.
  */
 
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 
 import { isExactDuplicate, NEAR_DUPLICATE, similarity } from "../lib/generation/matching.ts";
+import { importSheet } from "../lib/import/plan.ts";
 
 /*
   The workbook, overridable with --file= for checking a corrected copy before
@@ -356,20 +356,18 @@ const typeId = Object.fromEntries(types.map((t) => [t.slug, t.id]));
 const segmentId = (typeSlug, segSlug) =>
   segments.find((s) => s.client_type_id === typeId[typeSlug] && s.slug === segSlug)?.id ?? null;
 
-console.log("\n  Writing");
-console.log("  " + "-".repeat(66));
-
-for (const p of parsed) {
+/*
+  What each sheet resolves to, ready for the importer to decide about. The
+  workbook carries no deadline and no blocking flag, so those take one default
+  for every question and are tuned in the app.
+*/
+const sheets = parsed.map((p) => {
   const fields = [];
   let order = 0;
   for (const section of p.sections) {
     for (const question of section.questions) {
       order += 1;
-      const overlap = overlaps.find(
-        (o) => o.slug === p.slug && o.question === question,
-      );
-      // The workbook carries no deadline and no blocking flag either, so those
-      // take one default for every question and are tuned in the app.
+      const overlap = overlaps.find((o) => o.slug === p.slug && o.question === question);
       fields.push({
         section: section.section,
         sort_order: order,
@@ -385,107 +383,99 @@ for (const p of parsed) {
       });
     }
   }
+  return {
+    slug: p.slug,
+    name: p.sheet,
+    kind: p.kind,
+    clientTypeId: p.clientType ? typeId[p.clientType] : null,
+    subSegmentId: p.subSegment ? segmentId(p.clientType, p.subSegment) : null,
+    fields,
+  };
+});
 
-  /*
-    The hash covers what the WORKBOOK says: the questions, their sections and
-    their order. Not the defaults this script applies on top.
+console.log("\n  Writing");
+console.log("  " + "-".repeat(66));
 
-    That distinction matters. Owner is editable in the app, and the importer
-    reconciles its own defaults below. If the hash covered owner, then either an
-    admin's correction would look like a changed sheet and spawn a phantom
-    version, or changing a default here would silently do nothing.
-  */
-  const content = fields.map((f) => ({
-    section: f.section,
-    sort_order: f.sort_order,
-    question: f.question,
-  }));
-  const hash = createHash("sha256")
-    .update(JSON.stringify({ slug: p.slug, kind: p.kind, content }))
-    .digest("hex");
+/*
+  The Supabase half of the store. Every decision about what to write lives in
+  lib/import/plan.ts and is exercised by npm run test-import, which runs the
+  same code twice against a store held in memory. This part only talks to the
+  database.
+*/
+const store = {
+  async latestBySlug(slug) {
+    const { data, error } = await db
+      .from("onboarding_templates")
+      .select(
+        `id, slug, version,
+         fields:onboarding_template_fields (
+           id, section, sort_order, question, default_owner, default_owner_set_by
+         )`,
+      )
+      .eq("slug", slug)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    fail(`read ${slug}`, error);
+    return data ? { ...data, fields: data.fields ?? [] } : null;
+  },
 
-  const { data: latest, error: latestError } = await db
-    .from("onboarding_templates")
-    .select("id, version, content_hash")
-    .eq("slug", p.slug)
-    .order("version", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  fail(`read ${p.slug}`, latestError);
+  async createTemplate(input) {
+    const { data, error } = await db
+      .from("onboarding_templates")
+      .insert({
+        slug: input.slug,
+        name: input.name,
+        kind: input.kind,
+        source_sheet: input.name,
+        content_hash: input.contentHash,
+        program_type: null,
+        client_type_id: input.clientTypeId,
+        sub_segment_id: input.subSegmentId,
+        version: input.version,
+        active: true,
+      })
+      .select("id")
+      .single();
+    fail(`insert ${input.slug} v${input.version}`, error);
+    return data;
+  },
 
-  if (latest && latest.content_hash === hash) {
-    /*
-      The questions are unchanged, so no new version. The defaults this script
-      applies may still have changed, though, and owner is one of them.
-
-      Only where nobody has decided otherwise. default_owner_set_by non-null
-      means a person made a judgement in the app, and an import must not
-      overrule a person. That is the whole point of the column.
-    */
-    const { data: existing, error: existingError } = await db
+  async insertFields(templateId, fields) {
+    const { error } = await db
       .from("onboarding_template_fields")
-      .select("id, sort_order, default_owner, default_owner_set_by")
-      .eq("template_id", latest.id);
-    fail(`read fields for ${p.slug}`, existingError);
+      .insert(fields.map((f) => ({ ...f, template_id: templateId })));
+    fail(`insert fields for ${templateId}`, error);
+  },
 
-    let retuned = 0;
-    let leftAlone = 0;
-    for (const field of fields) {
-      const row = existing.find((e) => e.sort_order === field.sort_order);
-      if (!row || row.default_owner === field.default_owner) continue;
-      if (row.default_owner_set_by !== null) {
-        leftAlone += 1;
-        continue;
-      }
-      const { error: ownerError } = await db
-        .from("onboarding_template_fields")
-        .update({ default_owner: field.default_owner })
-        .eq("id", row.id);
-      fail(`retune owner on ${p.slug}`, ownerError);
-      retuned += 1;
-    }
+  async updateOwner(fieldId, owner) {
+    const { error } = await db
+      .from("onboarding_template_fields")
+      .update({ default_owner: owner })
+      .eq("id", fieldId);
+    fail("retune owner", error);
+  },
+};
 
+for (const sheet of sheets) {
+  const outcome = await importSheet(store, sheet);
+
+  if (outcome.action === "unchanged") {
     const note =
-      retuned > 0 || leftAlone > 0
-        ? `  ${retuned} owner default${retuned === 1 ? "" : "s"} updated` +
-          (leftAlone > 0 ? `, ${leftAlone} left as set in the app` : "")
+      outcome.retuned > 0 || outcome.leftAlone > 0
+        ? `  ${outcome.retuned} owner default${outcome.retuned === 1 ? "" : "s"} updated` +
+          (outcome.leftAlone > 0 ? `, ${outcome.leftAlone} left as set in the app` : "")
         : "";
-    console.log(`  unchanged  ${p.sheet.padEnd(24)} v${latest.version}${note}`);
+    console.log(`  unchanged    ${outcome.name.padEnd(24)} v${outcome.version}${note}`);
     continue;
   }
 
-  /*
-    The previous version is left exactly as it was, active flag included.
-    Generation asks for the highest version of a slug, so a new version wins
-    without anything being edited, and deactivating a bad version by hand still
-    falls back to the one before it.
-  */
-  const version = latest ? latest.version + 1 : 1;
-  const { data: template, error: insertError } = await db
-    .from("onboarding_templates")
-    .insert({
-      slug: p.slug,
-      name: p.sheet,
-      kind: p.kind,
-      source_sheet: p.sheet,
-      content_hash: hash,
-      program_type: null,
-      client_type_id: p.clientType ? typeId[p.clientType] : null,
-      sub_segment_id: p.subSegment ? segmentId(p.clientType, p.subSegment) : null,
-      version,
-      active: true,
-    })
-    .select()
-    .single();
-  fail(`insert ${p.slug} v${version}`, insertError);
-
-  const { error: fieldError } = await db
-    .from("onboarding_template_fields")
-    .insert(fields.map((f) => ({ ...f, template_id: template.id })));
-  fail(`insert fields for ${p.slug} v${version}`, fieldError);
-
+  const change =
+    outcome.previousQuestionCount !== undefined
+      ? `  ${outcome.previousQuestionCount} → ${outcome.questionCount} questions`
+      : `  ${outcome.questionCount} questions`;
   console.log(
-    `  ${latest ? "new version" : "created   "} ${p.sheet.padEnd(24)} v${version}  ${fields.length} questions`,
+    `  ${outcome.action.padEnd(12)} ${outcome.name.padEnd(24)} v${outcome.version}${change}`,
   );
 }
 
