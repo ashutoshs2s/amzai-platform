@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { loadGenerationContext, planFor } from "@/lib/data/generation";
 import { getSession } from "@/lib/data/session";
 import { createClient } from "@/lib/supabase/server";
-import type { GenerationPlan } from "@/lib/generation/resolve.ts";
+import type { AmbiguousRole } from "@/lib/generation/assignment.ts";
+import { ROLE_LABEL, rolesNeeded } from "@/lib/generation/assignment.ts";
 
 /**
  * Generating a programme's onboarding.
@@ -21,28 +22,11 @@ export type GenerateResult =
   /** SPEC.md 4.4. Not an error: the admin has to answer before this can run. */
   | { ok: false; needsResolution: AmbiguousRole[]; message: string };
 
-export type AmbiguousRole = {
-  role: string;
-  fieldCount: number;
-  holders: { id: string; fullName: string }[];
-};
-
 export type RoleChoice = {
   role: string;
-  /** A user id, or null for a deliberate "leave unassigned". */
+  /** A user id, or null for a deliberate "leave unassigned". SPEC.md 4.4. */
   userId: string | null;
 };
-
-const ROLE_LABEL: Record<string, string> = {
-  engagement_lead: "Engagement lead",
-  delivery_lead: "Delivery lead",
-  specialist: "Specialist",
-  data_ops: "Data ops",
-};
-
-export async function roleLabel(role: string): Promise<string> {
-  return ROLE_LABEL[role] ?? role;
-}
 
 function addDays(iso: string, days: number): string {
   const date = new Date(`${iso}T00:00:00Z`);
@@ -80,45 +64,6 @@ function dueDateFor(
       : (programme.gate_date ?? programme.end_date);
 
   return milestone ? addDays(milestone, -offsetValue) : null;
-}
-
-/**
- * Which roles the plan needs a person for, and who holds them.
- *
- * Client-owned fields and fields with no default role take no part: nobody at
- * Amzai owes them, so resolving a role for them would be inventing work.
- * SPEC.md 4.3.
- */
-function rolesNeeded(
-  plan: GenerationPlan,
-  team: { userId: string; fullName: string; role: string }[],
-) {
-  const counts = new Map<string, number>();
-  for (const q of plan.questions) {
-    const role = q.field.defaultAssigneeRole;
-    if (!role || q.field.defaultOwner === "client") continue;
-    counts.set(role, (counts.get(role) ?? 0) + 1);
-  }
-
-  const settled = new Map<string, string | null>();
-  const ambiguous: AmbiguousRole[] = [];
-
-  for (const [role, fieldCount] of counts) {
-    const holders = team.filter((t) => t.role === role);
-    if (holders.length === 1) {
-      settled.set(role, holders[0].userId);
-    } else if (holders.length === 0) {
-      settled.set(role, null);
-    } else {
-      ambiguous.push({
-        role,
-        fieldCount,
-        holders: holders.map((h) => ({ id: h.userId, fullName: h.fullName })),
-      });
-    }
-  }
-
-  return { settled, ambiguous };
 }
 
 export async function generateOnboarding(input: {
