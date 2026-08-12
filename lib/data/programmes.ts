@@ -147,6 +147,9 @@ export async function listProgrammes(today: string): Promise<ProgrammeRow[]> {
        ),
        delivery_lead:users!programs_delivery_lead_id_fkey ( full_name )`,
     )
+    // Archived programmes leave the interface but keep their history. They are
+    // reachable, and reversible, from the staff screen.
+    .is("archived_at", null)
     .order("name");
 
   if (error) throw new Error(`Could not load programmes: ${error.message}`);

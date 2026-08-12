@@ -147,3 +147,137 @@ export async function setManagedOrganisation(
   revalidatePath("/admin");
   return { ok: true };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Archiving and deleting                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Archive is the normal action: hidden from the interface, history intact,
+ * reversible by clearing one column. Deleting is the exception, and the
+ * database refuses the cases that would destroy a record of what happened —
+ * a programme with generated onboarding, an organisation with any programme.
+ * Those refusals are triggers, so they hold whatever calls them.
+ */
+async function adminGate() {
+  const session = await getSession();
+  if (session.state !== "ok") return { ok: false as const, message: "Not signed in." };
+  if (!isAdminOrAbove(session.staff.tier)) {
+    return { ok: false as const, message: "Only an admin can archive or delete a client." };
+  }
+  return { ok: true as const, supabase: await createClient() };
+}
+
+export async function setProgrammeArchived(
+  programmeId: string,
+  archived: boolean,
+): Promise<AdminResult> {
+  const gated = await adminGate();
+  if (!gated.ok) return gated;
+
+  const { data, error } = await gated.supabase
+    .from("programs")
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", programmeId)
+    .select("id");
+
+  if (error) return { ok: false, message: error.message };
+  if (!data || data.length === 0) return { ok: false, message: REFUSED };
+
+  revalidatePath("/admin");
+  revalidatePath("/programs");
+  return { ok: true };
+}
+
+export async function setClientArchived(
+  organisationId: string,
+  archived: boolean,
+): Promise<AdminResult> {
+  const gated = await adminGate();
+  if (!gated.ok) return gated;
+
+  const stamp = archived ? new Date().toISOString() : null;
+
+  const { data, error } = await gated.supabase
+    .from("organisations")
+    .update({ archived_at: stamp })
+    .eq("id", organisationId)
+    .select("id");
+
+  if (error) return { ok: false, message: error.message };
+  if (!data || data.length === 0) return { ok: false, message: REFUSED };
+
+  /*
+    Archiving a client archives its programmes. Leaving them live would put a
+    programme in the list whose client is gone from it, which reads as a bug.
+    Unarchiving does NOT bring them back: which programmes should return is a
+    judgement, and restoring one by hand is cheaper than explaining why six
+    reappeared.
+  */
+  if (archived) {
+    await gated.supabase
+      .from("programs")
+      .update({ archived_at: stamp })
+      .eq("organisation_id", organisationId)
+      .is("archived_at", null);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/programs");
+  return { ok: true };
+}
+
+export async function deleteProgramme(
+  programmeId: string,
+  typedName: string,
+): Promise<AdminResult> {
+  const gated = await adminGate();
+  if (!gated.ok) return gated;
+
+  const { data: programme } = await gated.supabase
+    .from("programs")
+    .select("name")
+    .eq("id", programmeId)
+    .maybeSingle();
+
+  if (!programme) return { ok: false, message: "That programme no longer exists." };
+  if (typedName.trim() !== programme.name) {
+    return { ok: false, message: "The name typed does not match. Nothing was deleted." };
+  }
+
+  const { error } = await gated.supabase.from("programs").delete().eq("id", programmeId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin");
+  revalidatePath("/programs");
+  return { ok: true };
+}
+
+export async function deleteClient(
+  organisationId: string,
+  typedName: string,
+): Promise<AdminResult> {
+  const gated = await adminGate();
+  if (!gated.ok) return gated;
+
+  const { data: organisation } = await gated.supabase
+    .from("organisations")
+    .select("name")
+    .eq("id", organisationId)
+    .maybeSingle();
+
+  if (!organisation) return { ok: false, message: "That client no longer exists." };
+  if (typedName.trim() !== organisation.name) {
+    return { ok: false, message: "The name typed does not match. Nothing was deleted." };
+  }
+
+  const { error } = await gated.supabase
+    .from("organisations")
+    .delete()
+    .eq("id", organisationId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin");
+  revalidatePath("/programs");
+  return { ok: true };
+}

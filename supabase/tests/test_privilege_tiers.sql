@@ -230,6 +230,142 @@ begin
   end loop;
 
   ---------------------------------------------------------------------------
+  -- THE UNION RULE
+  --
+  -- Promoting somebody must never take away access they already had.
+  --
+  -- This is the load-bearing rule of the tier design. Every other case asks
+  -- whether a tier reaches far enough; this one asks whether a promotion
+  -- silently reaches LESS far, which is the failure nobody would report,
+  -- because the person affected would assume the programme was simply gone.
+  --
+  -- Asserted as before-and-after over the actual programme, not as a count.
+  ---------------------------------------------------------------------------
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_user_b::text)::text, true);
+  execute 'set local role authenticated';
+  select string_agg(name, ', ' order by name) into v_actual
+  from public.programs where name like 'ZZ Tier%';
+  execute 'reset role';
+
+  area := 'union'; scenario := 'before promotion, the user sees their assignment';
+  expected := 'ZZ Tier Prog B'; actual := coalesce(v_actual, 'NULL');
+  result := case when actual = expected then 'PASS' else 'FAIL' end;
+  return next;
+
+  -- Promote to manager of an organisation that does NOT contain their
+  -- assignment.
+  update public.users set tier = 'manager' where id = v_user_b;
+  insert into public.organisation_managers (user_id, organisation_id)
+  values (v_user_b, v_org_a) on conflict do nothing;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_user_b::text)::text, true);
+  execute 'set local role authenticated';
+  select string_agg(name, ', ' order by name) into v_actual
+  from public.programs where name like 'ZZ Tier%';
+  execute 'reset role';
+
+  area := 'union';
+  scenario := 'promotion to manager NEVER removes an existing assignment';
+  expected := 'ZZ Tier Prog A, ZZ Tier Prog B'; actual := coalesce(v_actual, 'NULL');
+  result := case when actual = expected then 'PASS' else 'FAIL' end;
+  return next;
+
+  area := 'union'; scenario := 'and specifically, the old assignment survives';
+  expected := 'KEPT';
+  actual := case when coalesce(v_actual, '') like '%ZZ Tier Prog B%'
+                 then 'KEPT' else 'LOST ZZ Tier Prog B' end;
+  result := case when actual = expected then 'PASS' else 'FAIL' end;
+  return next;
+
+  -- And on the way back down.
+  update public.users set tier = 'user' where id = v_user_b;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_user_b::text)::text, true);
+  execute 'set local role authenticated';
+  select string_agg(name, ', ' order by name) into v_actual
+  from public.programs where name like 'ZZ Tier%';
+  execute 'reset role';
+
+  area := 'union'; scenario := 'demotion leaves the assignment intact';
+  expected := 'ZZ Tier Prog B'; actual := coalesce(v_actual, 'NULL');
+  result := case when actual = expected then 'PASS' else 'FAIL' end;
+  return next;
+
+  ---------------------------------------------------------------------------
+  -- A manager generates inside their own organisations
+  ---------------------------------------------------------------------------
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_manager::text)::text, true);
+  execute 'set local role authenticated';
+  begin
+    update public.programs set onboarding_fill_mode = 'amzai' where id = v_prog_a;
+    v_actual := 'ALLOWED';
+  exception when others then v_actual := 'DENIED';
+  end;
+  execute 'reset role';
+
+  area := 'manager'; scenario := 'manager can write their own programme, which generation does';
+  expected := 'ALLOWED'; actual := v_actual;
+  result := case when actual = expected then 'PASS' else 'FAIL' end;
+  return next;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_manager::text)::text, true);
+  execute 'set local role authenticated';
+  update public.programs set onboarding_fill_mode = 'client' where id = v_prog_b;
+  execute 'reset role';
+
+  select coalesce(onboarding_fill_mode, 'UNCHANGED') into v_actual
+  from public.programs where id = v_prog_b;
+
+  area := 'manager'; scenario := 'but not a programme outside their organisations';
+  expected := 'UNCHANGED'; actual := v_actual;
+  result := case when actual = expected then 'PASS' else 'FAIL' end;
+  return next;
+
+  ---------------------------------------------------------------------------
+  -- Archive and delete
+  ---------------------------------------------------------------------------
+  update public.programs set archived_at = now() where id = v_prog_b;
+  select case when archived_at is not null then 'ARCHIVED' else 'LIVE' end into v_actual
+  from public.programs where id = v_prog_b;
+  area := 'archive'; scenario := 'archiving keeps the row, history intact';
+  expected := 'ARCHIVED'; actual := v_actual;
+  result := case when actual = expected then 'PASS' else 'FAIL' end;
+  return next;
+
+  update public.programs set archived_at = null where id = v_prog_b;
+  select case when archived_at is null then 'LIVE' else 'ARCHIVED' end into v_actual
+  from public.programs where id = v_prog_b;
+  area := 'archive'; scenario := 'and it is reversible';
+  expected := 'LIVE'; actual := v_actual;
+  result := case when actual = expected then 'PASS' else 'FAIL' end;
+  return next;
+
+  begin
+    delete from public.programs where id = v_prog_a;
+    v_actual := 'DELETED';
+  exception when others then v_actual := 'REFUSED';
+  end;
+  area := 'archive'; scenario := 'a programme with generated onboarding cannot be deleted';
+  expected := 'REFUSED'; actual := v_actual;
+  result := case when actual = expected then 'PASS' else 'FAIL' end;
+  return next;
+
+  begin
+    delete from public.organisations where id = v_org_a;
+    v_actual := 'DELETED';
+  exception when others then v_actual := 'REFUSED';
+  end;
+  area := 'archive'; scenario := 'an organisation with programmes cannot be deleted';
+  expected := 'REFUSED'; actual := v_actual;
+  result := case when actual = expected then 'PASS' else 'FAIL' end;
+  return next;
+
+  ---------------------------------------------------------------------------
   -- The super admin, tested against the trigger rather than a policy.
   -- Row level security stops the signed-in path silently; the trigger is what
   -- holds where row level security does not.

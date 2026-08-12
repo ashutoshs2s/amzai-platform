@@ -2,7 +2,9 @@ import Link from "next/link";
 
 import { AccessState } from "@/components/AccessState";
 import {
+  listClientsForAdmin,
   listOrganisationsForAdmin,
+  listPrivilegeChanges,
   listStaff,
   listStaffFunctions,
 } from "@/lib/data/admin";
@@ -10,6 +12,8 @@ import { getSession } from "@/lib/data/session";
 import { isAdminOrAbove } from "@/lib/tiers";
 
 import { AdminContent } from "./AdminContent";
+import { ClientsSection } from "./ClientsSection";
+import { PrivilegeTrail } from "./PrivilegeTrail";
 
 /**
  * Staff and privileges.
@@ -46,19 +50,25 @@ export default async function AdminPage() {
     );
   }
 
-  const [staff, functions, organisations] = await Promise.all([
+  const [staff, functions, organisations, changes, clients] = await Promise.all([
     listStaff(),
     listStaffFunctions(),
     listOrganisationsForAdmin(),
+    listPrivilegeChanges(),
+    listClientsForAdmin(),
   ]);
 
   return (
-    <AdminContent
-      actorTier={session.staff.tier}
-      actorId={session.staff.id}
-      staff={staff}
-      functions={functions}
-      organisations={organisations}
-    />
+    <>
+      <AdminContent
+        actorTier={session.staff.tier}
+        actorId={session.staff.id}
+        staff={staff}
+        functions={functions}
+        organisations={organisations}
+      />
+      <ClientsSection clients={clients} />
+      <PrivilegeTrail changes={changes} />
+    </>
   );
 }

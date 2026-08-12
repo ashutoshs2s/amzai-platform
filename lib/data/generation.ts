@@ -1,6 +1,8 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSession } from "@/lib/data/session";
+import { isAdminOrAbove } from "@/lib/tiers";
 import type { Selection, Template } from "@/lib/generation/resolve.ts";
 import { resolveQuestions, situationalModulesFor } from "@/lib/generation/resolve.ts";
 
@@ -26,6 +28,12 @@ export type GenerationContext = {
     generatedAt: string | null;
     fillMode: "amzai" | "client" | null;
   };
+  /**
+   * Admin and above, or the manager who holds this organisation. Generation
+   * queuing behind two admins defeats the tier, and the preview-then-freeze
+   * step already makes it deliberate rather than accidental.
+   */
+  canGenerate: boolean;
   /** SPEC.md 4.2. Generation is blocked until somebody is assigned. */
   team: { userId: string; fullName: string; role: string }[];
   /** Modules that could be chosen for this programme, from the same rows. */
@@ -85,6 +93,42 @@ function toTemplate(row: TemplateRow): Template {
   };
 }
 
+/**
+ * Whether the signed-in staff member may generate for this organisation.
+ *
+ * The same question the database asks in can_manage_program. Asked here so the
+ * screen does not offer a button that the write would refuse, not because this
+ * is what holds the line.
+ */
+export async function canGenerateFor(organisationId: string): Promise<boolean> {
+  const session = await getSession();
+  if (session.state !== "ok") return false;
+  if (isAdminOrAbove(session.staff.tier)) return true;
+  if (session.staff.tier !== "manager") return false;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("organisation_managers")
+    .select("id")
+    .eq("user_id", session.staff.id)
+    .eq("organisation_id", organisationId)
+    .maybeSingle();
+
+  return Boolean(data);
+}
+
+/** The same question, from a programme rather than an organisation. */
+export async function canGenerateForProgramme(programmeId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("programs")
+    .select("organisation_id")
+    .eq("id", programmeId)
+    .maybeSingle();
+
+  return data ? canGenerateFor(data.organisation_id) : false;
+}
+
 export async function loadGenerationContext(
   programmeId: string,
 ): Promise<GenerationContext | null> {
@@ -94,6 +138,7 @@ export async function loadGenerationContext(
     .from("programs")
     .select(
       `id, name, slug, type, onboarding_generated_at, onboarding_fill_mode,
+       organisation_id,
        organisation:organisations (
          name, category, client_type_id, sub_segment_id,
          client_type:client_types ( id, label ),
@@ -173,6 +218,7 @@ export async function loadGenerationContext(
   };
 
   return {
+    canGenerate: await canGenerateFor(programme.organisation_id),
     programme: {
       id: programme.id,
       name: programme.name,

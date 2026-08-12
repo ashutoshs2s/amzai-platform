@@ -390,10 +390,12 @@ Three separate questions, deliberately answered by three separate things. Confla
 
 - **`super_admin`** — everything, plus the staff screen. Exactly one, held by a unique index. Cannot be demoted, deactivated or deleted by anyone including themselves: a trigger refuses it regardless of the caller, including the service role and the table owner. Moving it takes `set_super_admin()`, on which execute is revoked from every application role, so it can only be run from a SQL editor with owner rights.
 - **`admin`** — every client, programme and user. Creates clients, generates onboarding, manages everyone below. Cannot touch the super admin and cannot create another.
-- **`manager`** — every programme under the organisations they hold in `organisation_managers`, and the teams inside them. Cannot create clients and cannot change anybody's tier.
+- **`manager`** — every programme under the organisations they hold in `organisation_managers`, the teams inside them, and **generating onboarding for them**. Generation queuing behind two admins defeats the point of the tier, and the preview-then-freeze step in 4.1a already makes it deliberate rather than accidental. A manager may update their own programmes, because generation writes to `programs` and because one who can generate but cannot correct a date is a manager in name only. Cannot create or delete a programme, cannot create clients, cannot change anybody's tier.
 - **`user`** — only the programmes they are assigned to.
 
 **Access is the union of tier scope and assignment scope.** A manager personally assigned to a programme outside their organisations keeps seeing it, so promoting somebody can never quietly remove access they had.
+
+This is the load-bearing rule of the design, and it is a **test rather than a convention**. Every other case asks whether a tier reaches far enough; this one asks whether a promotion silently reaches *less* far, which is the failure nobody would report, because the person affected would assume the programme was simply gone. `test_privilege_tiers.sql` asserts it as a before-and-after over the actual programme names, in both directions, and names what was lost when it fails. It has been checked against a deliberately broken policy to confirm it fails rather than passing quietly.
 
 Manager access is derived through the organisation, never copied onto a programme. A new programme under a held organisation is visible the moment it exists, so nobody has to remember to grant it and nobody can forget to.
 
@@ -412,7 +414,22 @@ A function is a row, not an enum, so adding one is an `INSERT` rather than a mig
 
 Row level security cannot hide a column, so anyone denied commercial access is kept off `organisations` and `programs` entirely and reads `organisations_restricted` and `programs_restricted` instead. Those views are scoped: they show what the reader's tier allows, not everything with the commercial columns stripped.
 
-### 5.3 How policies ask
+### 5.3 Archiving and deleting
+
+**Archive is the normal action.** It hides a client or a programme from the interface, leaves its history whole, and is reversible by clearing one column. Archiving a client archives its programmes, because a programme whose client has left the list reads as a bug. Unarchiving does not bring them back: which should return is a judgement, and restoring one by hand is cheaper than explaining why six reappeared.
+
+**Deleting is the exception**, admin and above, with the name typed to confirm. Two refusals are enforced by triggers rather than by the screen that offers it, so the service role and a hand-run statement are held to them too:
+
+- A programme with generated onboarding is never deleted. Its answers are the record of what a client was asked and said.
+- An organisation with any programme is never deleted, archived ones included. Deleting the client of a live programme orphans work in progress, and the archived ones are exactly the history archiving was meant to keep.
+
+Where deletion is refused the screen writes out why, rather than showing a disabled button.
+
+### 5.4 The privilege trail
+
+The staff screen shows every change to a tier, a function or an organisation assignment: when, by whom, to whom, and what changed. It reads `audit_events`, which is append-only and written by a trigger rather than by the screen making the change, so a change made in the SQL editor or by a script appears identically. `audit_events` is readable by admin and above.
+
+### 5.5 How policies ask
 
 A policy that reads the tier out of `users` recurses. Every policy therefore asks a `SECURITY DEFINER` helper — `current_user_tier`, `can_see_program`, `can_manage`, `can_manage_program`, `manages_organisation`, `denied_commercial`, `denied_onboarding`, `can_see_audience` — which is the single place any of this is decided.
 

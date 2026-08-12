@@ -84,3 +84,143 @@ export async function listOrganisationsForAdmin(): Promise<{ id: string; name: s
   if (error) throw new Error(`Could not load organisations: ${error.message}`);
   return data ?? [];
 }
+
+/* -------------------------------------------------------------------------- */
+/* Privilege changes                                                          */
+/* -------------------------------------------------------------------------- */
+
+export type PrivilegeChange = {
+  id: string;
+  at: string;
+  actorName: string;
+  action: string;
+  what: string;
+  detail: string;
+};
+
+/** The tables a privilege change touches. Nothing else belongs in this view. */
+const PRIVILEGE_TABLES = ["users", "user_staff_functions", "organisation_managers"];
+
+/**
+ * Who changed a tier, a function or an organisation assignment, and when.
+ *
+ * Read from audit_events, which is append-only and written by a trigger, so it
+ * records what happened rather than what a screen reported. A change made in
+ * the SQL editor appears here too.
+ */
+export async function listPrivilegeChanges(limit = 40): Promise<PrivilegeChange[]> {
+  const supabase = await createClient();
+
+  const [{ data: events, error }, { data: staff }, { data: orgs }, { data: fns }] =
+    await Promise.all([
+      supabase
+        .from("audit_events")
+        .select("id, actor_id, action, table_name, record_id, before, after, occurred_at")
+        .in("table_name", PRIVILEGE_TABLES)
+        .order("occurred_at", { ascending: false })
+        .limit(limit),
+      supabase.from("users").select("id, full_name"),
+      supabase.from("organisations").select("id, name"),
+      supabase.from("staff_functions").select("id, label"),
+    ]);
+
+  if (error) throw new Error(`Could not load the privilege trail: ${error.message}`);
+
+  const nameOf = (id: string | null | undefined) =>
+    (staff ?? []).find((s) => s.id === id)?.full_name ?? "Unknown";
+  const orgOf = (id: string | null | undefined) =>
+    (orgs ?? []).find((o) => o.id === id)?.name ?? "an organisation";
+  const fnOf = (id: string | null | undefined) =>
+    (fns ?? []).find((f) => f.id === id)?.label ?? "a function";
+
+  return (events ?? []).map((event) => {
+    const before = (event.before ?? {}) as Record<string, unknown>;
+    const after = (event.after ?? {}) as Record<string, unknown>;
+
+    let what = "";
+    let detail = "";
+
+    if (event.table_name === "users") {
+      what = nameOf((after.id ?? before.id) as string);
+      if (before.tier !== after.tier && after.tier !== undefined && before.tier !== undefined) {
+        detail = `Tier ${before.tier} to ${after.tier}`;
+      } else if (before.active !== after.active && after.active !== undefined) {
+        detail = after.active ? "Reactivated" : "Deactivated";
+      } else if (event.action === "insert") {
+        detail = `Added at tier ${after.tier}`;
+      } else {
+        detail = "Details changed";
+      }
+    } else if (event.table_name === "user_staff_functions") {
+      const row = event.action === "delete" ? before : after;
+      what = nameOf(row.user_id as string);
+      detail = `${event.action === "delete" ? "Removed" : "Given"} the ${fnOf(
+        row.function_id as string,
+      )} function`;
+    } else {
+      const row = event.action === "delete" ? before : after;
+      what = nameOf(row.user_id as string);
+      detail = `${event.action === "delete" ? "No longer holds" : "Now holds"} ${orgOf(
+        row.organisation_id as string,
+      )}`;
+    }
+
+    return {
+      id: String(event.id),
+      at: event.occurred_at,
+      actorName: event.actor_id ? nameOf(event.actor_id) : "System",
+      action: event.action,
+      what,
+      detail,
+    };
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Clients and programmes, for archiving                                      */
+/* -------------------------------------------------------------------------- */
+
+export type ClientRow = {
+  id: string;
+  name: string;
+  archivedAt: string | null;
+  /** An organisation with any programme at all cannot be deleted. */
+  programmeCount: number;
+  programmes: {
+    id: string;
+    name: string;
+    archivedAt: string | null;
+    /** A programme with generated onboarding cannot be deleted. */
+    generated: boolean;
+  }[];
+};
+
+export async function listClientsForAdmin(): Promise<ClientRow[]> {
+  const supabase = await createClient();
+
+  const [{ data: orgs, error }, { data: programmes }] = await Promise.all([
+    supabase.from("organisations").select("id, name, archived_at").order("name"),
+    supabase
+      .from("programs")
+      .select("id, name, organisation_id, archived_at, onboarding_generated_at")
+      .order("name"),
+  ]);
+
+  if (error) throw new Error(`Could not load clients: ${error.message}`);
+
+  return (orgs ?? []).map((org) => {
+    const mine = (programmes ?? []).filter((p) => p.organisation_id === org.id);
+    return {
+      id: org.id,
+      name: org.name,
+      archivedAt: org.archived_at,
+      programmeCount: mine.length,
+      programmes: mine.map((p) => ({
+        id: p.id,
+        name: p.name,
+        archivedAt: p.archived_at,
+        generated: p.onboarding_generated_at !== null,
+      })),
+    };
+  });
+}
