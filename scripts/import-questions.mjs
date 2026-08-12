@@ -22,7 +22,15 @@ import * as XLSX from "xlsx";
 
 import { isExactDuplicate, NEAR_DUPLICATE, similarity } from "../lib/generation/matching.ts";
 
-const WORKBOOK = "data/Amzai_Dedicated_Team_Onboarding-4.xlsx";
+/*
+  The workbook, overridable with --file= for checking a corrected copy before
+  it replaces this one. The default is the version the question sets were last
+  imported from, so a plain run is never ambiguous about what it read.
+*/
+const DEFAULT_WORKBOOK = "data/Amzai_Dedicated_Team_Onboarding-5.xlsx";
+const WORKBOOK =
+  process.argv.find((a) => a.startsWith("--file="))?.slice("--file=".length) ??
+  DEFAULT_WORKBOOK;
 const DRY = process.argv.includes("--dry");
 
 /**
