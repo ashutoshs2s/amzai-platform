@@ -14,7 +14,8 @@
     "cf:typegen": "wrangler types --env-interface CloudflareEnv worker-configuration.d.ts",
     "seed": "node --env-file=.env.local scripts/seed.mjs",
     "check-db": "node --env-file=.env.local scripts/check-db.mjs",
-    "verify-write": "node --env-file=.env.local scripts/verify-write.mjs"
+    "verify-write": "node --env-file=.env.local scripts/verify-write.mjs",
+    "import-questions": "node --env-file=.env.local scripts/import-questions.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -34,6 +35,7 @@
     "eslint-config-next": "16.3.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "wrangler": "^4.86.0"
+    "wrangler": "^4.86.0",
+    "xlsx": "^0.18.5"
   }
 }
