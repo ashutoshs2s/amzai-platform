@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BlockingBar } from "@/components/BlockingBar";
@@ -16,6 +17,10 @@ import {
   subVerticalLabel,
   verticalLabel,
 } from "@/lib/verticals";
+import {
+  saveResponseAssignee,
+  saveResponseText,
+} from "@/lib/data/onboarding-actions";
 import type { OnboardingField, ProgrammeDetail } from "@/lib/data/programmes";
 
 const TABS = [
@@ -64,9 +69,24 @@ export function ProgrammeDetailContent({
 }) {
   const now = new Date(nowIso);
   const programme = detail;
+  const router = useRouter();
 
   const [tab, setTab] = useState<Tab>("Onboarding");
   const [fields, setFields] = useState<OnboardingField[] | null>(detail.onboarding);
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
+
+  /*
+    Adjust state when the server sends new data, React's documented pattern for
+    it. A save calls router.refresh(), the page re-renders with fresh props, and
+    without this the local copy would quietly go stale and show the operator
+    their old value as though it had been written.
+  */
+  const [seenOnboarding, setSeenOnboarding] = useState(detail.onboarding);
+  if (detail.onboarding !== seenOnboarding) {
+    setSeenOnboarding(detail.onboarding);
+    setFields(detail.onboarding);
+    setSaveErrors({});
+  }
   const [showReassign, setShowReassign] = useState(false);
   const [reassignFrom, setReassignFrom] = useState("");
   const [reassignTo, setReassignTo] = useState("");
@@ -108,6 +128,7 @@ export function ProgrammeDetailContent({
   }
 
   const teamNames = detail.team.map((member) => member.name);
+  const teamMembers = detail.team.map((m) => ({ id: m.id, name: m.name }));
 
   const blockingOpen = useMemo(
     () => (fields ?? []).filter((f) => f.blocking && isOpen(f)),
@@ -133,6 +154,51 @@ export function ProgrammeDetailContent({
     setFields((current) =>
       (current ?? []).map((f) => (f.id === id ? { ...f, ...patch } : f)),
     );
+  }
+
+  /**
+   * Optimistic, then reconciled. The value changes on screen immediately, and
+   * if the write fails it goes back to what the database still holds. The
+   * editor keeps whatever was typed either way: losing somebody's typing is
+   * the worst thing this screen can do.
+   */
+  async function persistResponse(fieldId: string, text: string) {
+    const previous = (fields ?? []).find((f) => f.id === fieldId)?.response ?? "";
+    updateField(fieldId, { response: text });
+    const result = await saveResponseText(fieldId, detail.id, text);
+    if (!result.ok) {
+      updateField(fieldId, { response: previous });
+      // InlineEdit shows its own failure state when onSave throws.
+      throw new Error(result.message);
+    }
+    router.refresh();
+  }
+
+  async function persistAssignee(fieldId: string, assigneeId: string | null) {
+    const before = (fields ?? []).find((f) => f.id === fieldId);
+    const name =
+      assigneeId === null
+        ? null
+        : (detail.team.find((m) => m.id === assigneeId)?.name ?? null);
+
+    updateField(fieldId, { assigneeId, assignee: name });
+    setSaveErrors((e) => {
+      if (!(fieldId in e)) return e;
+      const rest = { ...e };
+      delete rest[fieldId];
+      return rest;
+    });
+
+    const result = await saveResponseAssignee(fieldId, detail.id, assigneeId);
+    if (!result.ok) {
+      updateField(fieldId, {
+        assigneeId: before?.assigneeId ?? null,
+        assignee: before?.assignee ?? null,
+      });
+      setSaveErrors((e) => ({ ...e, [fieldId]: result.message }));
+      return;
+    }
+    router.refresh();
   }
 
   function applyReassign() {
@@ -324,10 +390,16 @@ export function ProgrammeDetailContent({
                               <FieldRow
                                 key={field.id}
                                 field={field}
-                                team={teamNames}
+                                team={teamMembers}
                                 first={index === 0}
                                 highlighted={field.id === highlightId}
-                                onChange={(patch) => updateField(field.id, patch)}
+                                saveError={saveErrors[field.id]}
+                                onSaveResponse={(text) =>
+                                  persistResponse(field.id, text)
+                                }
+                                onChangeAssignee={(id) =>
+                                  persistAssignee(field.id, id)
+                                }
                               />
                             ))}
                           </div>
@@ -445,7 +517,8 @@ export function ProgrammeDetailContent({
       </div>
 
       <p className="mt-6 text-caption text-slate">
-        Edits are held in the page and are not saved yet.
+        Answers and assignees save as you change them. Status, dates and the
+        bulk reassign are not wired up yet.
       </p>
     </div>
   );
@@ -465,13 +538,17 @@ function FieldRow({
   team,
   first,
   highlighted,
-  onChange,
+  saveError,
+  onSaveResponse,
+  onChangeAssignee,
 }: {
   field: OnboardingField;
-  team: string[];
+  team: { id: string; name: string }[];
   first: boolean;
   highlighted: boolean;
-  onChange: (patch: Partial<OnboardingField>) => void;
+  saveError?: string;
+  onSaveResponse: (text: string) => Promise<void>;
+  onChangeAssignee: (assigneeId: string | null) => void;
 }) {
   const open = isOpen(field);
   return (
@@ -513,7 +590,7 @@ function FieldRow({
       <div className="mt-2">
         <InlineEdit
           value={field.response}
-          onSave={(next) => onChange({ response: next })}
+          onSave={onSaveResponse}
           ariaLabel={field.question}
           multiline
           placeholder="Not answered"
@@ -547,23 +624,25 @@ function FieldRow({
           <Select
             quiet
             aria-label={`Assignee for ${field.question}`}
-            value={field.assignee ?? ""}
+            value={field.assigneeId ?? ""}
             onChange={(event) =>
-              onChange({
-                assignee: event.target.value === "" ? null : event.target.value,
-              })
+              onChangeAssignee(event.target.value === "" ? null : event.target.value)
             }
             className={countsAsUnassigned(field) ? "text-watch" : "text-ink"}
           >
             <option value="">Unassigned</option>
-            {team.map((name) => (
-              <option key={name} value={name}>
-                {name}
+            {team.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name}
               </option>
             ))}
           </Select>
         </span>
       </div>
+
+      {saveError && (
+        <p className="mt-1 text-caption text-critical">{saveError}</p>
+      )}
     </div>
   );
 }

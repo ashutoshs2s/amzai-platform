@@ -223,7 +223,7 @@ export type ProgrammeDetail = {
   time: ProgrammeTime | null;
   approverName: string | null;
   approverEmail: string | null;
-  team: { name: string; roleOnProgram: string; allocationPercent: number | null }[];
+  team: { id: string; name: string; roleOnProgram: string; allocationPercent: number | null }[];
   /** Null when onboarding has not been generated. */
   onboarding: OnboardingField[] | null;
   templateName: string | null;
@@ -254,7 +254,7 @@ export async function getProgramme(id: string): Promise<ProgrammeDetail | null> 
       supabase
         .from("program_assignments")
         .select(
-          `role_on_program, allocation_percent, user:users!program_assignments_user_id_fkey ( full_name )`,
+          `role_on_program, allocation_percent, user:users!program_assignments_user_id_fkey ( id, full_name )`,
         )
         .eq("program_id", id),
       supabase
@@ -339,6 +339,7 @@ export async function getProgramme(id: string): Promise<ProgrammeDetail | null> 
     approverName: programme.approver_name,
     approverEmail: programme.approver_email,
     team: (assignments ?? []).map((row) => ({
+      id: first(row.user)?.id ?? "",
       name: first(row.user)?.full_name ?? "Unknown",
       roleOnProgram: row.role_on_program,
       allocationPercent: row.allocation_percent,

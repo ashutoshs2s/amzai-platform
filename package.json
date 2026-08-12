@@ -13,7 +13,8 @@
     "cf:deploy": "opennextjs-cloudflare deploy",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv worker-configuration.d.ts",
     "seed": "node --env-file=.env.local scripts/seed.mjs",
-    "check-db": "node --env-file=.env.local scripts/check-db.mjs"
+    "check-db": "node --env-file=.env.local scripts/check-db.mjs",
+    "verify-write": "node --env-file=.env.local scripts/verify-write.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
