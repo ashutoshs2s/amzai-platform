@@ -359,6 +359,13 @@ The programme detail screen shows an unassigned count beside the section complet
 
 This holds whether a field is unassigned because no one holds its role or because an admin deliberately chose `Leave unassigned`. The count does not distinguish them, because the consequence is identical: work nobody is doing.
 
+A client-owned field takes no part in that count and must not read as though it did. On the field itself the two states are named apart:
+
+- **Amzai-owned, nobody on it** — `Assignee: Unassigned`, in `--watch`. Work nobody is doing.
+- **Client-owned, nobody on it** — `Chasing: Awaiting the client`, in `--slate`. The normal state of a question the client has not answered yet, and not a gap.
+
+The control is the same control in both cases, because an assignee on a client-owned field is meaningful: it is whoever is chasing it, per section 4.6. Only the words and the weight change. Reusing the word "unassigned" for both made a client-owned question sitting beside an answered one look like something had been missed.
+
 ## 5. Access rules
 
 All users are internal staff. Row level security on every table.

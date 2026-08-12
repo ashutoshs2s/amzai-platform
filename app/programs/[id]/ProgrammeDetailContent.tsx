@@ -51,6 +51,44 @@ function countsAsUnassigned(field: OnboardingField): boolean {
   return field.assignee === null && field.owner !== "client";
 }
 
+/**
+ * What the assignee position says, which depends on who owns the question.
+ *
+ * The counting rule above was already right, but the words were not: a
+ * client-owned question with nobody against it read "Unassigned", which is the
+ * same phrase used for Amzai work nobody is doing. Sitting beside an answered
+ * question it looked like a gap in the programme, when it is the normal and
+ * expected state of a question the client has not answered yet.
+ *
+ * So the two states are named apart. An assignee on a client-owned question is
+ * still meaningful — SPEC.md 4.6 calls it whoever is chasing it — so the
+ * control stays, and only what it is called changes.
+ */
+function assigneeWording(field: OnboardingField): {
+  label: string;
+  empty: string;
+  ariaLabel: string;
+  tone: string;
+} {
+  if (field.owner === "client") {
+    return {
+      label: "Chasing",
+      empty: "Awaiting the client",
+      ariaLabel: `Who at Amzai is chasing: ${field.question}`,
+      // A state rather than a person, so it does not read as a name. Never
+      // --watch: nothing is wrong here.
+      tone: field.assigneeId === null ? "text-slate" : "text-ink",
+    };
+  }
+
+  return {
+    label: "Assignee",
+    empty: "Unassigned",
+    ariaLabel: `Assignee for ${field.question}`,
+    tone: countsAsUnassigned(field) ? "text-watch" : "text-ink",
+  };
+}
+
 /** Counts open on a field: not approved and not N/A. SPEC.md section 7.3. */
 function isOpen(field: OnboardingField): boolean {
   return field.status !== "approved" && field.status !== "na";
@@ -548,6 +586,7 @@ function FieldRow({
   onChangeAssignee: (assigneeId: string | null) => void;
 }) {
   const open = isOpen(field);
+  const wording = assigneeWording(field);
   return (
     <div
       id={`field-${field.id}`}
@@ -617,17 +656,17 @@ function FieldRow({
           Owner <span className="text-ink">{OWNER_LABEL[field.owner]}</span>
         </span>
         <span className="flex items-center gap-1">
-          Assignee
+          {wording.label}
           <Select
             quiet
-            aria-label={`Assignee for ${field.question}`}
+            aria-label={wording.ariaLabel}
             value={field.assigneeId ?? ""}
             onChange={(event) =>
               onChangeAssignee(event.target.value === "" ? null : event.target.value)
             }
-            className={countsAsUnassigned(field) ? "text-watch" : "text-ink"}
+            className={wording.tone}
           >
-            <option value="">Unassigned</option>
+            <option value="">{wording.empty}</option>
             {team.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.name}
