@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { SignOutButton } from "@/components/shell/SignOutButton";
 import type { AwaitingSummary } from "@/lib/data/programmes";
 import { subVerticalLabel, verticalLabel, type VerticalId } from "@/lib/verticals";
 
@@ -58,10 +59,13 @@ export function TopBar({
   programmeContext,
   awaiting,
   searchIndex,
+  staffName,
 }: {
   programmeContext?: { id: string; name: string };
   awaiting: AwaitingSummary;
   searchIndex: SearchEntry[];
+  /** Who is signed in. Absent when nobody is. */
+  staffName?: string;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -156,16 +160,25 @@ export function TopBar({
         </span>
       )}
 
-      <Link
-        href="/programs"
-        className="ml-auto flex shrink-0 items-baseline gap-2 rounded-base text-body"
-        title="Onboarding fields assigned to you that are not approved or N/A"
-      >
-        <span className={`font-time text-time font-medium ${awaitingTone(awaiting)}`}>
-          {awaiting.count}
-        </span>
-        <span className="text-slate">awaiting you</span>
-      </Link>
+      <div className="ml-auto flex shrink-0 items-baseline gap-4">
+        <Link
+          href="/programs"
+          className="flex items-baseline gap-2 rounded-base text-body"
+          title="Onboarding fields assigned to you that are not approved or N/A"
+        >
+          <span className={`font-time text-time font-medium ${awaitingTone(awaiting)}`}>
+            {awaiting.count}
+          </span>
+          <span className="text-slate">awaiting you</span>
+        </Link>
+
+        {staffName && (
+          <span className="flex items-baseline gap-2 text-body">
+            <span className="text-ink">{staffName}</span>
+            <SignOutButton />
+          </span>
+        )}
+      </div>
     </header>
   );
 }

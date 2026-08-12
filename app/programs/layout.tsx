@@ -30,6 +30,7 @@ export default async function ProgramsLayout({
   return (
     <AppShell
       awaiting={awaiting}
+      staffName={session.state === "ok" ? session.staff.fullName : undefined}
       searchIndex={programmes.map((p) => ({
         id: p.id,
         name: p.name,

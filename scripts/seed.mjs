@@ -35,6 +35,7 @@ const db = createClient(url, serviceRoleKey, {
 const SEED_PASSWORD = "amzai-dev-password";
 
 const STAFF = [
+  { email: "ash@amzai.ai", full_name: "Ash Prasad", role: "admin" },
   { email: "priya.raman@amzai.ai", full_name: "Priya Raman", role: "admin" },
   { email: "daniel.okoro@amzai.ai", full_name: "Daniel Okoro", role: "engagement_lead" },
   { email: "sana.iqbal@amzai.ai", full_name: "Sana Iqbal", role: "delivery_lead" },

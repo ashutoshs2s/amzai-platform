@@ -23,10 +23,12 @@ export function AppShell({
   children,
   awaiting,
   searchIndex,
+  staffName,
 }: {
   children: ReactNode;
   awaiting: AwaitingSummary;
   searchIndex: SearchEntry[];
+  staffName?: string;
 }) {
   const pathname = usePathname();
   const activeModule = currentModule(pathname);
@@ -45,6 +47,7 @@ export function AppShell({
         }
         awaiting={awaiting}
         searchIndex={searchIndex}
+        staffName={staffName}
       />
       <div className="pl-[var(--rail-width)] pt-[var(--topbar)]">
         <main className="max-w-content px-6 py-6">{children}</main>
