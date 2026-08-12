@@ -89,6 +89,28 @@ export function AdminContent({
         itself.
       </p>
 
+      {/*
+        Said once. The tier and function descriptions were repeating in full on
+        every row, so six copies of the longest text on the screen sat between
+        the reader and the data. A legend states each meaning once, and the
+        controls carry the same words as a tooltip for anyone who arrives at a
+        row without reading down here first.
+      */}
+      <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-2 rounded-base border border-line bg-surface-head px-3 py-2">
+        {TIERS.map((tier) => (
+          <div key={tier} className="max-w-[320px]">
+            <dt className="text-label font-medium text-ink">{TIER_LABEL[tier]}</dt>
+            <dd className="text-caption text-slate">{TIER_DESCRIPTION[tier]}</dd>
+          </div>
+        ))}
+        {functions.map((fn) => (
+          <div key={fn.id} className="max-w-[320px]">
+            <dt className="text-label font-medium text-ink">{fn.label}</dt>
+            <dd className="text-caption text-slate">{fn.description}</dd>
+          </div>
+        ))}
+      </dl>
+
       <table className="mt-6 w-full table-fixed border border-line bg-surface">
         <thead>
           <tr className="border-b border-line text-left text-table-header uppercase tracking-wide text-slate">
@@ -124,11 +146,14 @@ export function AdminContent({
                 {/* Tier ------------------------------------------------- */}
                 <td className="px-3 py-2">
                   {locked ? (
-                    <span className="text-body text-ink">{TIER_LABEL[person.tier]}</span>
+                    <span className="text-body text-ink" title={TIER_DESCRIPTION[person.tier]}>
+                      {TIER_LABEL[person.tier]}
+                    </span>
                   ) : (
                     <Select
                       quiet
                       aria-label={`Tier for ${person.fullName}`}
+                      title={TIER_DESCRIPTION[person.tier]}
                       value={person.tier}
                       onChange={(event) => {
                         const tier = event.target.value;
@@ -148,9 +173,6 @@ export function AdminContent({
                       ))}
                     </Select>
                   )}
-                  <span className="mt-1 block text-caption text-slate">
-                    {TIER_DESCRIPTION[person.tier]}
-                  </span>
                 </td>
 
                 {/* Functions -------------------------------------------- */}
@@ -184,12 +206,7 @@ export function AdminContent({
                             }}
                             className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
                           />
-                          <span>
-                            {fn.label}
-                            {fn.description && (
-                              <span className="block text-caption text-slate">{fn.description}</span>
-                            )}
-                          </span>
+                          <span title={fn.description ?? undefined}>{fn.label}</span>
                         </label>
                       );
                     })}
@@ -222,7 +239,7 @@ export function AdminContent({
                           onClick={() =>
                             setExpanded((c) => (c === person.id ? null : person.id))
                           }
-                          className="mt-1 rounded-base text-caption text-accent underline underline-offset-2"
+                          className="mt-1 block rounded-base text-caption text-accent underline underline-offset-2"
                         >
                           {expanded === person.id ? "Done" : "Change"}
                         </button>
