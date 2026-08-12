@@ -3,9 +3,13 @@ import type { ReactNode } from "react";
 /**
  * Status pill. DESIGN.md section 5.
  *
- * One component, used everywhere, never restyled per module. 11px, 500 weight,
- * uppercase, 2px 8px padding, 4px radius, status background with status text
+ * One component, used everywhere, never restyled per module. 10px, 500 weight,
+ * uppercase, tight padding, 4px radius, status background with status text
  * colour. Text only: no dot, no icon.
+ *
+ * Deliberately small. A dense screen carries many of these at once, and at
+ * caption size they competed with the values they were describing. They lean on
+ * their background for legibility, not on their size.
  *
  * Every status in the platform maps onto one of the semantic tones rather than
  * inventing a new colour per module.
@@ -91,7 +95,7 @@ export function StatusPill({ status, tone, label }: StatusPillProps) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-base px-2 py-[2px] text-caption font-medium uppercase ${TONE_CLASS[resolvedTone]}`}
+      className={`inline-flex items-center rounded-base px-1.5 py-[1px] text-pill font-medium uppercase tracking-[0.04em] ${TONE_CLASS[resolvedTone]}`}
     >
       {label ?? statusLabel(status)}
     </span>

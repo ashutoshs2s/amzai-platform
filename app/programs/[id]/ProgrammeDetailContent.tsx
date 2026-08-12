@@ -257,7 +257,7 @@ export function ProgrammeDetailContent({
       </Link>
 
       <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-page-title font-semibold">{programme.name}</h1>
+        <h1 className="text-page-title font-semibold text-ink">{programme.name}</h1>
         <span className="text-body text-slate">
           {programme.clientTypeLabel}
           {" · "}
@@ -372,7 +372,7 @@ export function ProgrammeDetailContent({
                   </div>
 
                   {showReassign && (
-                    <div className="mt-3 flex flex-wrap items-end gap-3 border border-line bg-surface p-3">
+                    <div className="mt-3 flex flex-wrap items-end gap-4 rounded-base border border-line bg-surface-head px-3 py-2">
                       <label className="flex flex-col gap-1">
                         <span className="text-label font-medium text-slate">From</span>
                         <Select
@@ -412,7 +412,7 @@ export function ProgrammeDetailContent({
                       const done = sectionFields.filter((f) => !isOpen(f)).length;
                       return (
                         <section key={section}>
-                          <h3 className="flex items-baseline gap-2">
+                          <h3 className="mt-2 flex items-baseline gap-2">
                             <span className="text-section font-medium text-ink">
                               {section}
                             </span>
@@ -420,7 +420,7 @@ export function ProgrammeDetailContent({
                               {done}/{sectionFields.length}
                             </span>
                           </h3>
-                          <div className="mt-2 border border-line bg-surface">
+                          <div className="mt-2 overflow-hidden rounded-base border border-line bg-surface">
                             {sectionFields.map((field, index) => (
                               <FieldRow
                                 key={field.id}
@@ -451,7 +451,7 @@ export function ProgrammeDetailContent({
           )}
 
           {tab !== "Onboarding" && (
-            <div className="mt-4 border border-line bg-surface">
+            <div className="mt-4 overflow-hidden rounded-base border border-line bg-surface">
               <EmptyState message={emptyMessageFor(tab)} />
             </div>
           )}
@@ -461,7 +461,19 @@ export function ProgrammeDetailContent({
         {/* Right, persistent, roughly 30%. Does not scroll away.             */}
         {/* ---------------------------------------------------------------- */}
         <aside className="lg:sticky lg:top-6 lg:w-[30%]">
-          <div className="flex flex-col gap-4 border border-line bg-surface p-4">
+          {/*
+            One panel, with each fact a bordered region inside it rather than
+            text floating on a single card. The label sits tight against its
+            value and the gap falls between one fact and the next, so the pairs
+            group by proximity rather than by the reader tracking a rule.
+          */}
+          <div className="overflow-hidden rounded-base border border-line bg-surface">
+            <div className="border-b border-line bg-surface-head px-3 py-2">
+              <span className="text-table-header font-medium uppercase tracking-[0.04em] text-slate">
+                This programme
+              </span>
+            </div>
+            <div className="flex flex-col">
             <Detail label="Countdown">
               {programme.time === null ? (
                 <span className="text-slate">No dates set</span>
@@ -484,8 +496,8 @@ export function ProgrammeDetailContent({
 
             <Detail label="Blocking">
               <span
-                className={`font-time text-time ${
-                  blockingOpen.length > 0 ? "font-medium text-critical" : "text-slate"
+                className={`font-time text-time font-medium ${
+                  blockingOpen.length > 0 ? "text-critical" : "text-ink"
                 }`}
               >
                 {blockingOpen.length}
@@ -514,7 +526,7 @@ export function ProgrammeDetailContent({
                       <span className="text-body text-ink">{member.name}</span>
                       <span className="text-caption text-slate">
                         {ROLE_LABEL[member.roleOnProgram] ?? member.roleOnProgram}{" "}
-                        <span className="font-time">{member.allocationPercent}%</span>
+                        <span className="font-time font-medium text-ink">{member.allocationPercent}%</span>
                       </span>
                     </li>
                   ))}
@@ -547,6 +559,7 @@ export function ProgrammeDetailContent({
                 </button>
               )}
             </Detail>
+            </div>
           </div>
         </aside>
       </div>
@@ -559,9 +572,17 @@ export function ProgrammeDetailContent({
   );
 }
 
+/**
+ * A label and its value.
+ *
+ * gap-0.5 between the two and px-3 py-3 around the pair: the label belongs to
+ * the value under it, and the space that separates one fact from the next has
+ * to be visibly larger than the space inside a fact, or the reader has to work
+ * out which label goes with which number.
+ */
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-line pb-4 last:border-b-0 last:pb-0">
+    <div className="flex flex-col gap-0.5 border-b border-line px-3 py-3 last:border-b-0">
       <span className="text-label font-medium text-slate">{label}</span>
       <div>{children}</div>
     </div>
@@ -696,7 +717,7 @@ function GenerateGate({
 }) {
   const blocked = teamSize === 0;
   return (
-    <div className="border border-line bg-surface p-6">
+    <div className="rounded-base border border-line bg-surface p-6">
       <p className="text-body text-ink">Onboarding has not been generated yet.</p>
       <p className="mt-1 max-w-[560px] text-body text-slate">
         The questions are worked out when you generate, from the client&rsquo;s type and

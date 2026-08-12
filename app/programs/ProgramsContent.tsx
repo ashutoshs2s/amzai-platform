@@ -279,7 +279,7 @@ export function ProgramsContent({
     the dividers; each control is bare inside it. DESIGN.md section 5.
   */
   const filters = (
-    <div className="inline-flex flex-wrap items-center divide-x divide-line overflow-hidden rounded-base border border-line bg-canvas">
+    <div className="inline-flex flex-wrap items-center divide-x divide-line overflow-hidden rounded-base border border-line bg-surface-head">
       <Select
         bare
         className="w-[132px]"
@@ -384,7 +384,7 @@ export function ProgramsContent({
   return (
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-        <h1 className="text-page-title font-semibold">Programs</h1>
+        <h1 className="text-page-title font-semibold text-ink">Programs</h1>
         {/*
           The one action that starts something here, so it is the one primary
           on the screen. Admin only, and absent rather than disabled for
@@ -407,7 +407,7 @@ export function ProgramsContent({
         numerals, no trend arrows, no shadow. A programme can appear in more
         than one, so these will not sum to the row count.
       */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-5 inline-flex flex-wrap items-center gap-2 rounded-base border border-line bg-surface p-2">
         {countValues.map((count) => {
           const isActive = countFilter === count.id;
           const carriesStatus = count.value > 0 && count.tone !== undefined;
@@ -434,7 +434,7 @@ export function ProgramsContent({
                 The word is always present, so the colour on the number is
                 never carrying the meaning by itself. Section 7.
               */}
-              <span className="text-body">{count.label}</span>
+              <span className="text-body font-medium">{count.label}</span>
             </button>
           );
         })}

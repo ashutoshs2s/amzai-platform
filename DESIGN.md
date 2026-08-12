@@ -132,6 +132,20 @@ Hierarchy on a dense screen comes from position and the 24px of space above a he
 
 The table header role is unaffected. Those are column labels rather than headings, they sit inside a bounded element, and their uppercase treatment is what separates the header row from the body at a glance.
 
+### Weight
+
+**Weight is the main hierarchy signal, not size.** The type scale is deliberately narrow — 11px to 20px across the whole product — because a dense operational screen cannot afford large type. That leaves weight to do the work, and screens that ignore it read as unfinished drafts rather than as a product.
+
+| Weight | Role |
+|---|---|
+| **600** | Screen titles, panel headings, and the leading value in any pair |
+| **500** | Table headers, labels, section headings, counts and numbers |
+| 400 | Body, prose, values, secondary text |
+
+**At most two weights are visible in any single component.** Three is where a component starts to look designed rather than built.
+
+Numbers carry 500 in the mono face wherever they are data rather than prose — a count, a percentage, a countdown, a version. That is what makes a figure read as a figure at a glance.
+
 ### Spacing and shape
 
 4px base unit. Use 4, 8, 12, 16, 24, 32, 48 only.
@@ -143,6 +157,10 @@ The table header role is unaffected. Those are column labels rather than heading
 --topbar:       52px
 --content-max:  1500px  /* content area cap, left-aligned */
 ```
+
+**Every region has a visible boundary.** A panel is `--surface` on the `--canvas` background, inside a 1px `--line` border at 4px radius. The record view is composed panels, not text floating on a page. A screen that is all one surface gives the eye nothing to land on and reads as a wireframe.
+
+`--surface-head` is the tint for a region's header: table header rows and panel headers. It separates the header from its rows without a heavy rule and without colour.
 
 No shadows anywhere except dropdowns and modals, where use a single hairline plus `0 4px 12px rgba(20,22,26,0.08)`. Panels and tables are separated by borders, not elevation.
 
@@ -171,11 +189,30 @@ Amber whenever the count is non-zero would mean amber permanently, and a number 
 
 **Content area** on canvas background, 24px padding, capped at 1500px and **left-aligned, not centred**.
 
+**Vertical rhythm.** One spacing for one relationship, everywhere:
+
+| Between | Space |
+|---|---|
+| A label and its value | 2px |
+| One field and the next | 20px |
+| A section heading and what follows it | 12px |
+| One section and the next | 32px |
+
+**A section heading takes more space above than below**, so it groups with the content it introduces rather than floating between two blocks. Even spacing above and below is the single most common reason a screen reads as a list of unrelated parts.
+
+The same rule holds inside a panel: the gap between a label and its value must be visibly smaller than the gap between one fact and the next, or the reader has to work out which label belongs to which number.
+
 Both failure modes are real. Unconstrained, a wide table stretches to the window and leaves a band of empty space past the last column that reads as unfinished rather than spacious. Centred in a narrow column, a dense internal tool wastes half the screen and drifts away from the rail. Capped and left-aligned, every screen starts in the same place and the table ends where its content ends.
 
 ---
 
 ## 5. Core patterns
+
+### Panels
+
+A hairline border, `--surface` fill, 4px radius, and a header row on `--surface-head` where the region has a heading. Regions that are separate concerns look separate: on the programme list the counts row, the filter cluster and the table are three deliberate regions, not one continuous field of controls.
+
+Panels do not nest more than one deep. A panel inside a panel inside a panel is a sign the page wants splitting.
 
 ### Tables
 
@@ -192,11 +229,17 @@ Six of the eight modules are variations on a table. Get this right once.
 - Temporal columns right-aligned, mono. Text columns left-aligned.
 - Click anywhere on a row to open the record. No separate view button.
 
+**Header rows sit on `--surface-head`**, 11px, 500, uppercase, `--slate`, with a single hairline beneath rather than a heavy rule. Rows separate with one hairline. The whole table is a panel: hairline border, own surface, 4px radius.
+
+Counts and numeric cells are mono at 500, right-aligned where they are compared down a column.
+
 ### Status
 
 One component, used everywhere, never restyled per module.
 
-A pill: 11px, 500 weight, uppercase, 2px 8px padding, 4px radius, status background with status text colour. Text only, no dot, no icon.
+A pill: **10px, 500 weight, uppercase**, 1px 6px padding, 4px radius, status background with status text colour. Text only, no dot, no icon.
+
+Deliberately small. A dense screen carries many of these at once, and at caption size they competed with the values they were describing. They lean on their background for legibility, not on their size.
 
 Map every status in the platform to one of the four semantic tones rather than inventing new colours per module. Approved, confirmed and on track are all `clear`. Submitted, awaiting and due soon are all `watch`. Blocked, overdue and failed are all `critical`. Not started, in progress, N/A, paused and complete are all `idle`.
 

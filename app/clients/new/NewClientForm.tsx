@@ -134,10 +134,10 @@ export function NewClientForm({ clientTypes, staff, modules }: Props) {
       </p>
 
       {/* ---------------------------------------------------------------- */}
-      <section className="mt-6">
-        <h2 className="text-section font-semibold text-ink">1. The organisation</h2>
+      <section className="mt-8">
+        <h2 className="text-section font-medium text-ink">1. The organisation</h2>
 
-        <div className="mt-3 grid grid-cols-2 gap-4">
+        <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-5 rounded-base border border-line bg-surface p-4">
           <Field
             label="Organisation name"
             required
@@ -196,10 +196,10 @@ export function NewClientForm({ clientTypes, staff, modules }: Props) {
       </section>
 
       {/* ---------------------------------------------------------------- */}
-      <section className="mt-6">
-        <h2 className="text-section font-semibold text-ink">2. The programme</h2>
+      <section className="mt-8">
+        <h2 className="text-section font-medium text-ink">2. The programme</h2>
 
-        <div className="mt-3 grid grid-cols-2 gap-4">
+        <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-5 rounded-base border border-line bg-surface p-4">
           <Field
             label="Programme name"
             required
@@ -270,7 +270,7 @@ export function NewClientForm({ clientTypes, staff, modules }: Props) {
               Optional and independent. They add their questions at generation, and anything
               they repeat is dropped there and listed.
             </p>
-            <div className="mt-2 border border-line rounded-base bg-surface">
+            <div className="mt-2 overflow-hidden rounded-base border border-line bg-surface">
               {availableModules.map((module) => (
                 <label
                   key={module.slug}
@@ -297,15 +297,15 @@ export function NewClientForm({ clientTypes, staff, modules }: Props) {
       </section>
 
       {/* ---------------------------------------------------------------- */}
-      <section className="mt-6">
-        <h2 className="text-section font-semibold text-ink">3. The team</h2>
+      <section className="mt-8">
+        <h2 className="text-section font-medium text-ink">3. The team</h2>
         <p className="mt-1 max-w-[640px] text-body text-slate">
           At least one person. Onboarding questions are assigned by role, so who holds a role
           here decides who owes what. SPEC.md 4.2.
         </p>
 
         {assignments.length > 0 && (
-          <div className="mt-3 border border-line rounded-base bg-surface">
+          <div className="mt-3 overflow-hidden rounded-base border border-line bg-surface">
             {assignments.map((assignment, index) => (
               <div
                 key={index}

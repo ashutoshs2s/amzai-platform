@@ -166,16 +166,16 @@ export function DataTable<T>({
 
   return (
     <div className={className}>
-      {filters && <div className="mb-2">{filters}</div>}
+      {filters && <div className="mb-3">{filters}</div>}
 
       {/* Row count and active filters, as plain text. Section 5. */}
       <p className="mb-2 text-label text-slate">
-        <span className="font-time">{loading ? "—" : sortedRows.length}</span>{" "}
+        <span className="font-time font-medium text-ink">{loading ? "—" : sortedRows.length}</span>{" "}
         {sortedRows.length === 1 && !loading ? noun.one : noun.other}
         {activeFilterCount > 0 && (
           <>
             {" · "}
-            <span className="font-time">{activeFilterCount}</span>{" "}
+            <span className="font-time font-medium text-ink">{activeFilterCount}</span>{" "}
             {activeFilterCount === 1 ? "filter" : "filters"} active
             {onClearFilters && (
               <>
@@ -203,7 +203,7 @@ export function DataTable<T>({
         the algorithm is undefined and browsers quietly fall back to auto
         layout, honouring none of the declared widths.
       */}
-      <div className="overflow-x-auto border border-line bg-surface">
+      <div className="overflow-x-auto rounded-base border border-line bg-surface">
         <table
           className={`w-full border-collapse text-body ${
             layout === "fixed" ? "table-fixed" : ""
@@ -230,7 +230,7 @@ export function DataTable<T>({
                     }
                     // Canvas fill and a doubled bottom rule. A single hairline
                     // reads as just another row boundary. DESIGN.md section 5.
-                    className={`sticky top-0 z-10 border-b-2 border-line bg-canvas px-3 py-2 text-table-header font-medium uppercase tracking-[0.04em] text-slate ${
+                    className={`sticky top-0 z-10 border-b border-line bg-surface-head px-3 py-2 text-table-header font-medium uppercase tracking-[0.04em] text-slate ${
                       column.align === "right" ? "text-right" : "text-left"
                     }`}
                   >

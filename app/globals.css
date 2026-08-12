@@ -23,6 +23,7 @@
   --mute: #8a92a6;
   --line: #dce1eb; /* borders, dividers, table rules */
   --surface: #ffffff; /* cards, tables, panels */
+  --surface-head: #eef1f7; /* table header rows, panel headers */
   --canvas: #f6f8fc; /* page background */
   --accent: #1b3a6b; /* interactive: links, primary buttons, focus */
   --accent-sub: #e6ecf6; /* accent background wash, selected rows */
@@ -55,6 +56,7 @@
   --color-mute: var(--mute);
   --color-line: var(--line);
   --color-surface: var(--surface);
+  --color-surface-head: var(--surface-head);
   --color-canvas: var(--canvas);
   --color-accent: var(--accent);
   --color-accent-sub: var(--accent-sub);
@@ -106,6 +108,12 @@
   --text-metric--line-height: 1.15;
   --text-caption: 11px;
   --text-caption--line-height: 1.4;
+  /*
+    Status pills only. There are many of them on a dense screen, so they sit a
+    step below caption and lean on their background rather than their size.
+  */
+  --text-pill: 10px;
+  --text-pill--line-height: 1.4;
 
   --radius-base: var(--radius);
 
