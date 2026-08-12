@@ -134,7 +134,7 @@ export function GeneratePreview({
       {/* ---------------------------------------------------------------- */}
       {offered.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-section font-medium text-ink">Situational modules</h2>
+          <h2 className="border-b border-line pb-2 text-section font-semibold text-ink">Situational modules</h2>
           <p className="mt-1 text-body text-slate">
             Optional and independent. Each appends its questions; anything it repeats is
             dropped below.
@@ -169,7 +169,7 @@ export function GeneratePreview({
 
       {/* ---------------------------------------------------------------- */}
       <section className="mt-8">
-        <h2 className="text-section font-medium text-ink">
+        <h2 className="border-b border-line pb-2 text-section font-semibold text-ink">
           Question sets selected{" "}
           <span className="font-normal text-slate">({plan.sets.length})</span>
         </h2>
@@ -224,7 +224,7 @@ export function GeneratePreview({
       {/* ---------------------------------------------------------------- */}
       {plan.dropped.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-section font-medium text-ink">
+          <h2 className="border-b border-line pb-2 text-section font-semibold text-ink">
             Dropped as duplicates{" "}
             <span className="font-normal text-slate">({plan.dropped.length})</span>
           </h2>
@@ -232,6 +232,12 @@ export function GeneratePreview({
             Asked once, by whichever set came first. Not silently: this is the list.
           </p>
           <table className="mt-3 w-full table-fixed overflow-hidden rounded-base border border-line bg-surface">
+            <thead>
+              <tr className="border-b border-line bg-surface-head text-left text-table-header uppercase tracking-[0.04em] text-slate">
+                <th className="px-3 py-2 font-medium">Question</th>
+                <th className="w-[38%] px-3 py-2 font-medium">Dropped because</th>
+              </tr>
+            </thead>
             <tbody>
               {plan.dropped.map((d, index) => (
                 <tr key={index} className="border-b border-line last:border-b-0">
@@ -248,7 +254,7 @@ export function GeneratePreview({
 
       {plan.near.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-section font-medium text-ink">
+          <h2 className="border-b border-line pb-2 text-section font-semibold text-ink">
             Close, kept anyway{" "}
             <span className="font-normal text-slate">({plan.near.length})</span>
           </h2>
@@ -257,6 +263,12 @@ export function GeneratePreview({
             repeated question is annoying, a subtly different one dropped is worse.
           </p>
           <table className="mt-3 w-full table-fixed overflow-hidden rounded-base border border-line bg-surface">
+            <thead>
+              <tr className="border-b border-line bg-surface-head text-left text-table-header uppercase tracking-[0.04em] text-slate">
+                <th className="px-3 py-2 font-medium">Question, and what it is close to</th>
+                <th className="w-[10%] px-3 py-2 text-right font-medium">Match</th>
+              </tr>
+            </thead>
             <tbody>
               {plan.near.map((q) => (
                 <tr key={q.field.id} className="border-b border-line last:border-b-0">
@@ -279,7 +291,7 @@ export function GeneratePreview({
       {/* ---------------------------------------------------------------- */}
       {ambiguous.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-section font-medium text-ink">Who answers these</h2>
+          <h2 className="border-b border-line pb-2 text-section font-semibold text-ink">Who answers these</h2>
           <p className="mt-1 text-body text-slate">
             More than one person holds these roles. The platform will not pick one:
             a wrong guess stays invisible until somebody misses a deadline.
@@ -327,7 +339,7 @@ export function GeneratePreview({
 
       {/* ---------------------------------------------------------------- */}
       <section className="mt-8">
-        <h2 className="text-section font-medium text-ink">Who fills this in</h2>
+        <h2 className="border-b border-line pb-2 text-section font-semibold text-ink">Who fills this in</h2>
         <div className="mt-3 overflow-hidden rounded-base border border-line bg-surface">
           {(
             [

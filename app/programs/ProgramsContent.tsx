@@ -407,7 +407,7 @@ export function ProgramsContent({
         numerals, no trend arrows, no shadow. A programme can appear in more
         than one, so these will not sum to the row count.
       */}
-      <div className="mt-5 inline-flex flex-wrap items-center gap-2 rounded-base border border-line bg-surface p-2">
+      <div className="mt-6 inline-flex flex-wrap items-center gap-2 rounded-base border border-line bg-surface p-2">
         {countValues.map((count) => {
           const isActive = countFilter === count.id;
           const carriesStatus = count.value > 0 && count.tone !== undefined;

@@ -135,7 +135,7 @@ export function NewClientForm({ clientTypes, staff, modules }: Props) {
 
       {/* ---------------------------------------------------------------- */}
       <section className="mt-8">
-        <h2 className="text-section font-medium text-ink">1. The organisation</h2>
+        <h2 className="border-b border-line pb-2 text-section font-semibold text-ink">1. The organisation</h2>
 
         <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-5 rounded-base border border-line bg-surface p-4">
           <Field
@@ -197,7 +197,7 @@ export function NewClientForm({ clientTypes, staff, modules }: Props) {
 
       {/* ---------------------------------------------------------------- */}
       <section className="mt-8">
-        <h2 className="text-section font-medium text-ink">2. The programme</h2>
+        <h2 className="border-b border-line pb-2 text-section font-semibold text-ink">2. The programme</h2>
 
         <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-5 rounded-base border border-line bg-surface p-4">
           <Field
@@ -298,7 +298,7 @@ export function NewClientForm({ clientTypes, staff, modules }: Props) {
 
       {/* ---------------------------------------------------------------- */}
       <section className="mt-8">
-        <h2 className="text-section font-medium text-ink">3. The team</h2>
+        <h2 className="border-b border-line pb-2 text-section font-semibold text-ink">3. The team</h2>
         <p className="mt-1 max-w-[640px] text-body text-slate">
           At least one person. Onboarding questions are assigned by role, so who holds a role
           here decides who owes what. SPEC.md 4.2.

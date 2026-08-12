@@ -317,7 +317,9 @@ export function ProgrammeDetailContent({
           </div>
 
           {tab === "Onboarding" && (
-            <div className="mt-4">
+            /* The counts summarise the tab's contents, they are not part of the
+               tab row. More space above than below puts them with what follows. */
+            <div className="mt-7">
               {fields === null ? (
                 <GenerateGate
                   programmeId={detail.id}
@@ -407,20 +409,34 @@ export function ProgrammeDetailContent({
                     </div>
                   )}
 
-                  <div className="mt-4 flex flex-col gap-6">
+                  {/*
+                    The section IS the panel, and its heading is the panel's
+                    header rather than a line of text floating above a box.
+
+                    On a programme running to 110 questions the section heading
+                    is the only structural landmark there is, so it carries 600
+                    against the questions' 500, sits on the header tint, and has
+                    a hairline under it. Questions are rows inside, divided by
+                    hairlines: one bordered region per section, not one per
+                    question.
+                  */}
+                  <div className="mt-4 flex flex-col gap-8">
                     {sections.map(([section, sectionFields]) => {
                       const done = sectionFields.filter((f) => !isOpen(f)).length;
                       return (
-                        <section key={section}>
-                          <h3 className="mt-2 flex items-baseline gap-2">
-                            <span className="text-section font-medium text-ink">
+                        <section
+                          key={section}
+                          className="overflow-hidden rounded-base border border-line bg-surface"
+                        >
+                          <h3 className="flex items-baseline gap-3 border-b border-line bg-surface-head px-3 py-2">
+                            <span className="text-section font-semibold text-ink">
                               {section}
                             </span>
-                            <span className="font-time text-caption text-slate">
+                            <span className="ml-auto font-time text-caption font-medium text-slate">
                               {done}/{sectionFields.length}
                             </span>
                           </h3>
-                          <div className="mt-2 overflow-hidden rounded-base border border-line bg-surface">
+                          <div>
                             {sectionFields.map((field, index) => (
                               <FieldRow
                                 key={field.id}
@@ -611,7 +627,7 @@ function FieldRow({
   return (
     <div
       id={`field-${field.id}`}
-      className={`scroll-mt-6 border-l-2 p-3 transition-colors ${
+      className={`scroll-mt-6 border-l-2 px-3 py-3 transition-colors ${
         first ? "" : "border-t border-t-line"
       } ${
         highlighted
