@@ -282,7 +282,7 @@ export function ProgrammeDetailContent({
             <div className="mt-4">
               {fields === null ? (
                 <GenerateGate
-                  templateName={detail.templateName}
+                  programmeId={detail.id}
                   teamSize={detail.team.length}
                 />
               ) : (
@@ -649,34 +649,40 @@ function FieldRow({
  * least one team member is assigned, and it says why.
  */
 function GenerateGate({
-  templateName,
+  programmeId,
   teamSize,
 }: {
-  templateName: string | null;
+  programmeId: string;
   teamSize: number;
 }) {
   const blocked = teamSize === 0;
   return (
     <div className="border border-line bg-surface p-6">
       <p className="text-body text-ink">Onboarding has not been generated yet.</p>
-      <p className="mt-1 text-body text-slate">
-        {templateName ? (
-          <>
-            Selected template: <span className="text-ink">{templateName}</span>
-          </>
-        ) : (
-          "No template selected yet. It is chosen from the organisation's vertical and the programme type."
-        )}
+      <p className="mt-1 max-w-[560px] text-body text-slate">
+        The questions are worked out when you generate, from the client&rsquo;s type and
+        sub-segment, the programme type, and any situational modules you choose. You will
+        see exactly which sets were selected and why, and what they come to, before
+        anything is written.
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button variant="primary" disabled={blocked}>
-          Generate onboarding
-        </Button>
-        {blocked && (
-          <span className="text-body text-slate">
-            Assign at least one team member before generating. Fields are assigned
-            by role.
-          </span>
+        {blocked ? (
+          <>
+            <Button variant="primary" disabled>
+              Generate onboarding
+            </Button>
+            <span className="text-body text-slate">
+              Assign at least one team member before generating. Fields are assigned
+              by role.
+            </span>
+          </>
+        ) : (
+          <Link
+            href={`/programs/${programmeId}/generate`}
+            className="inline-flex h-8 items-center justify-center rounded-base bg-accent px-3 text-body font-medium text-surface transition-colors hover:opacity-90"
+          >
+            Generate onboarding
+          </Link>
         )}
       </div>
     </div>

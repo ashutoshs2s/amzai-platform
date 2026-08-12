@@ -179,8 +179,8 @@ const coreQuestions = core.sections.flatMap((s) =>
 );
 
 const overlaps = [];
-for (const module of parsed.filter((p) => p.kind === "situational")) {
-  for (const section of module.sections) {
+for (const situational of parsed.filter((p) => p.kind === "situational")) {
+  for (const section of situational.sections) {
     for (const question of section.questions) {
       let best = null;
       for (const c of coreQuestions) {
@@ -195,8 +195,8 @@ for (const module of parsed.filter((p) => p.kind === "situational")) {
       }
       if (best) {
         overlaps.push({
-          sheet: module.sheet,
-          slug: module.slug,
+          sheet: situational.sheet,
+          slug: situational.slug,
           section: section.section,
           question,
           ...best,

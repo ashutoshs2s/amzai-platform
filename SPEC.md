@@ -68,7 +68,9 @@ Belonging is enforced by a composite foreign key on `(sub_segment_id, client_typ
 `id` uuid pk · `slug` text unique · `label` text · `sort_order` integer · `active` boolean · `created_at`, `updated_at` timestamptz
 
 ### client_sub_segments
-`id` uuid pk · `client_type_id` uuid fk · `slug` text · `label` text · `sort_order` integer · `active` boolean · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `client_type_id` uuid fk · `slug` text · `label` text · `sort_order` integer · `active` boolean · `questions_from_sub_segment_id` uuid fk nullable · `created_at`, `updated_at` timestamptz
+
+`questions_from_sub_segment_id` names another sub-segment whose question set this one borrows, and null means it has its own. It is how a sub-segment the workbook does not cover still generates: an admin repoints one row rather than asking for a code change. A composite foreign key holds the target to the same client type, and a check refuses self-reference. Responses generated through a borrow are marked `is_generic`. See section 4.1.
 
 Unique on (`client_type_id`, `slug`). Staff read both tables; only an admin writes them, because they are reference data the whole product depends on and a wrong edit is expensive.
 
@@ -76,7 +78,9 @@ Unique on (`client_type_id`, `slug`). Staff read both tables; only an admin writ
 `id` uuid pk, matches Supabase auth user id · `full_name` text · `email` text · `role` text (engagement_lead, delivery_lead, specialist, data_ops, admin) · `active` boolean · `created_at`, `updated_at` timestamptz
 
 ### programs
-`id` uuid pk · `organisation_id` uuid fk · `name` text · `slug` text not null · `type` text (event, retainer, dedicated_team, series, research) · `status` text (onboarding, active, paused, complete) · `currency` text · `start_date`, `end_date` date · `fixed_milestone_date` date · `gate_date` date nullable · `onboarding_template_id` uuid fk onboarding_templates nullable · `approver_name`, `approver_email` text · `engagement_lead_id`, `delivery_lead_id` uuid fk users · `dashboard_token` text nullable · `dashboard_token_issued_at` timestamptz nullable · `slug_locked_at` timestamptz nullable · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `organisation_id` uuid fk · `name` text · `slug` text not null · `type` text (event, retainer, dedicated_team, series, research) · `status` text (onboarding, active, paused, complete) · `currency` text · `start_date`, `end_date` date · `fixed_milestone_date` date · `gate_date` date nullable · `onboarding_template_id` uuid fk onboarding_templates nullable · `approver_name`, `approver_email` text · `engagement_lead_id`, `delivery_lead_id` uuid fk users · `dashboard_token` text nullable · `dashboard_token_issued_at` timestamptz nullable · `slug_locked_at` timestamptz nullable · `onboarding_fill_mode` text nullable (amzai, client) · `onboarding_generated_at` timestamptz nullable · `created_at`, `updated_at` timestamptz
+
+`onboarding_generated_at` non-null means the question set is frozen. `onboarding_template_id` predates sets being resolved from several templates and is no longer how the answer is read; `program_onboarding_sources` is.
 
 `fixed_milestone_date` is the date that does not move. Event countdowns calculate from it.
 
@@ -108,7 +112,17 @@ Unique on (`program_id`, `role_on_program`). One answer per role per programme.
 `resolved_by` and `resolved_at` name who decided and when. Every write here also writes an audit row.
 
 ### onboarding_templates
-`id` uuid pk · `name` text · `program_type` text · `client_type_id` uuid fk nullable · `sub_segment_id` uuid fk nullable · `version` integer · `active` boolean · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `name` text · `slug` text · `kind` text (core, segment, situational) · `source_sheet` text nullable · `content_hash` text nullable · `program_type` text **nullable** · `client_type_id` uuid fk nullable · `sub_segment_id` uuid fk nullable · `version` integer · `active` boolean · `created_at`, `updated_at` timestamptz
+
+One row per workbook sheet per version, unique on `(slug, version)`.
+
+`kind` says how a set is reached, and it is the reason a programme's questions are not one template. A `core` set applies to every programme; a `segment` set is chosen by the taxonomy; a `situational` set is chosen for the programme by hand. See section 4.1.
+
+`program_type` is nullable, meaning any: a core or situational set asks the same questions of an event and a retainer.
+
+`content_hash` is the hash of the sheet as imported. Equal hash means nothing changed, so re-importing writes nothing.
+
+**A version is immutable apart from `active`.** A trigger refuses any other change. Withdrawing a bad version is legitimate; rewriting one is not, because a programme generated from it reads its questions through it.
 
 Both `client_type_id` and `sub_segment_id` are nullable, and null means "applies to anything at this level".
 
@@ -121,14 +135,32 @@ Both `client_type_id` and `sub_segment_id` are nullable, and null means "applies
 The point of the hierarchy is that adding the twenty-sixth B2B Tech sub-segment should not mean writing a twenty-sixth template. Write one, and specialise only where a real difference in the questions justifies a second.
 
 ### onboarding_template_fields
-`id` uuid pk · `template_id` uuid fk · `section` text · `sort_order` integer · `question` text · `guidance` text · `default_owner` text (client, amzai, both) · `default_assignee_role` text nullable (engagement_lead, delivery_lead, specialist, data_ops) · `default_offset_type` text (weeks_from_start, days_before_milestone) · `default_offset_value` integer · `blocking` boolean · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `template_id` uuid fk · `section` text · `sort_order` integer · `question` text · `guidance` text · `default_owner` text (client, amzai, both) · `default_assignee_role` text nullable (engagement_lead, delivery_lead, specialist, data_ops) · `default_offset_type` text (weeks_from_start, days_before_milestone) · `default_offset_value` integer · `blocking` boolean · `duplicate_kind` text nullable (exact, near) · `duplicate_of` text nullable · `created_at`, `updated_at` timestamptz
+
+**Append-only.** A trigger refuses UPDATE, DELETE and TRUNCATE, the same treatment `audit_events` gets and for a related reason: a generated response reads its question text through this table, so editing a row in place would reword a question on every programme ever generated from it. Changing a question means importing a new version.
+
+`duplicate_kind` and `duplicate_of` are what the importer observed when it read the sheet, kept as provenance. They are not what generation acts on; generation resolves duplicates over the set it is actually building. See section 4.1.
+
+The workbook carries two columns, questions and responses, and no owner, deadline or blocking flag. Every imported question therefore takes the same defaults, and nothing is inferred from a question's wording. Tuning them is done in the app against real programmes, because guessing per question would be a heuristic and a wrong owner is invisible until a deadline is missed.
 
 A due date is expressed as an offset, not as a week label, so it resolves to a real date without anyone interpreting it. `weeks_from_start` counts forward from the programme's `start_date`; `days_before_milestone` counts back from `fixed_milestone_date`. Retainers and dedicated teams use the first, events use the second. The offset is resolved into `onboarding_responses.due_date` once, when the response row is created. See section 7.
 
 `default_assignee_role` says which job on the programme this field belongs to, not which person. The person is resolved at generation from `program_assignments`. Same four values as `role_on_program`, and nullable for fields that are nobody's by default. See section 4.
 
+### program_onboarding_sources
+`id` uuid pk · `program_id` uuid fk · `template_id` uuid fk · `role` text (core, segment, situational, fallback) · `created_at`, `updated_at` timestamptz
+
+Every template version a generated set was built from, and the part it played. Unique on (`program_id`, `template_id`). This is what makes "why is this question here?" answerable a year later, and what a single `onboarding_template_id` could not express.
+
+### program_situational_modules
+`id` uuid pk · `program_id` uuid fk · `module_slug` text · `created_at`, `updated_at` timestamptz
+
+The modules chosen for a programme, held from creation until generation. By slug rather than by template id, because the choice is "ask the New Market Entry questions" and not "ask version 3 of them"; which version answers that is settled at generation. A slug alone is not unique across versions so a foreign key cannot check it, and a trigger does instead — without it a typo would sit in the table looking like a real choice and quietly contribute nothing.
+
 ### onboarding_responses
-`id` uuid pk · `program_id` uuid fk · `template_field_id` uuid fk · `response` text · `owner` text (client, amzai, both) · `assignee_id` uuid fk users nullable · `due_date` date · `status` text (not_started, in_progress, submitted, approved, blocked, na) · `blocking` boolean · `answer_source` text (amzai_written, client_written, imported) · `answered_by` uuid fk users nullable · `answered_by_contact_id` uuid fk client_contacts nullable · `answered_at` timestamptz nullable · `tasks_generated` boolean · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `program_id` uuid fk · `template_field_id` uuid fk · `is_generic` boolean · `response` text · `owner` text (client, amzai, both) · `assignee_id` uuid fk users nullable · `due_date` date · `status` text (not_started, in_progress, submitted, approved, blocked, na) · `blocking` boolean · `answer_source` text (amzai_written, client_written, imported) · `answered_by` uuid fk users nullable · `answered_by_contact_id` uuid fk client_contacts nullable · `answered_at` timestamptz nullable · `tasks_generated` boolean · `created_at`, `updated_at` timestamptz
+
+`is_generic` marks a question borrowed from another sub-segment's set because this one has none of its own. It sits on the response rather than the template field, because the question is not generic in its own set, only in the one it was borrowed into.
 
 `owner` is the party responsible, client or Amzai. `assignee_id` is the individual member of staff responsible, and is what the top bar's awaiting-me count reads. Nullable, because a field can be owned by Amzai without being anyone's job yet. A field with `owner` client normally has no assignee, though one can be set for whoever is chasing it.
 
@@ -203,25 +235,62 @@ Not every audit row comes from a table write. Reads of a client-facing surface a
 The order matters, and it is not a suggestion. Done out of order, a programme generates with every onboarding field unassigned, and the awaiting-me count that drives the whole platform reads zero for everyone from day one.
 
 1. **Create the organisation**, including its client type, its sub-segment where the client type has them, and optionally the category.
-2. **Create the programme**, including its type and dates.
+2. **Create the programme**, including its type, its dates, and any situational modules it needs.
 3. **Assign the Amzai team** in `program_assignments`, each with a `role_on_program`.
-4. **Generate onboarding.**
+4. **Generate onboarding**, after reviewing the plan. Section 4.1a.
 
-### 4.1 Selecting the template
+### 4.1 Resolving the question set
 
-The organisation's client type and sub-segment, together with the programme's type, select the template. No one types a template name.
+A programme's questions are not one template. They are resolved at generation from four things: the organisation's **client type**, its **sub-segment**, the **programme type**, and any **situational modules** chosen for that programme.
 
-`program_type` must always match. Within that, the most specific match wins, in this order:
+**Core always applies.** Every programme gets the core set, whatever the client.
 
-1. **Exact sub-segment.** `client_type_id` and `sub_segment_id` both match the organisation.
-2. **Client type.** `client_type_id` matches and `sub_segment_id` is null.
-3. **Generic.** Both are null.
+**One segment set is chosen**, in this order, stopping at the first that yields a candidate:
 
-Only `active` templates are candidates. Where more than one still matches at the same level, the highest `version` wins. Selection stops at the first level that yields a candidate: a sub-segment template beats a client-type one even if the client-type one has a higher version number, because specificity is the stronger signal.
+1. **The sub-segment's own set.** A template whose `sub_segment_id` matches the organisation's.
+2. **The set it borrows.** Where the sub-segment's `questions_from_sub_segment_id` names another, that one's set is used and every response taken from it is marked `is_generic`. Hosted Buyer Organizer and Community Event Organizer have no sheet in the workbook and borrow Trade Show Organizer's.
+3. **The client type's set.** A template whose `client_type_id` matches and whose `sub_segment_id` is null. This is how one B2B Tech set serves all twenty-five of its sub-segments.
 
-An organisation whose client type is Law Firms has no sub-segment, so level 1 never applies to it and selection starts at level 2.
+A borrow beats the client-type set because a borrow is something a person stated about that sub-segment, and the client-type set is only a default.
 
-The admin sees which template was selected before generating, and may override it with any other active template. Once generated, the choice is recorded on `programs.onboarding_template_id` and does not change.
+**Situational modules append**, in the order they were chosen. A module is offered only where its `client_type_id` is null or matches the organisation's, so a module can never be offered on a screen and then refused at generation.
+
+`program_type` must match throughout, where a template's `program_type` of null means any. Only `active` templates are candidates, and the highest `version` of a slug wins.
+
+**Nothing about this mapping lives in code.** No route, screen or script holds a list of which questions belong to which client. Adding a sub-segment, repointing a borrow, withdrawing a version or importing an updated workbook changes what future programmes generate, with no code change and no deploy. The rules above are implemented once, in `lib/generation/resolve.ts`, as a pure function of the rows and the selections.
+
+Every contributing template version is recorded in `program_onboarding_sources` with the role it played: `core`, `segment`, `situational` or `fallback`. A single `programs.onboarding_template_id` cannot describe a set built from several, which is why that column is no longer how the answer is read.
+
+#### Overlapping questions
+
+Sets overlap. A situational module repeats questions the core set already asks.
+
+Duplicates are resolved over the set actually being built, not looked up from a mark made at import time, because which questions collide depends on which sets are combined.
+
+- **Identical wording**: asked once. Whichever set came first wins, and since core is composed first, core wins.
+- **Close but not identical**: both are kept, and the later one is marked. A near-duplicate asked twice is annoying; a subtly different question silently dropped is worse.
+
+The matching rule has one home, `lib/generation/matching.ts`, imported by both the workbook importer and generation. Two copies would drift, and then the overlap report would promise something generation did not do.
+
+### 4.1a The preview, and what freezing means
+
+Generation shows the whole plan before writing anything: every set selected and **why it was selected in those words**, the total question count, every question dropped as a duplicate and what dropped it, every near-duplicate kept, and anything the rules could not settle. Selections can be changed on that screen and the plan recomputes.
+
+The preview and the write are the same calculation. `resolveQuestions` is pure — no database, no clock, no request — so the screen can run it in the browser as selections change and the server runs it again on submit. The server never trusts what the browser sends: it recomputes from the rows and writes that.
+
+**Once generated, the set is frozen to the programme.** A later workbook import, a repointed borrow, a new sub-segment or a withdrawn version never alters a live programme.
+
+That is enforced, not merely intended:
+
+- `onboarding_template_fields` is append-only. A trigger refuses UPDATE, DELETE and TRUNCATE, exactly as `audit_events` does. A generated response reads its question text through this table, so an in-place edit would rewrite the wording on every programme ever generated from it.
+- A template version is immutable apart from its `active` flag, so a bad version can be withdrawn but not rewritten.
+- The importer never edits. A changed sheet becomes a new version, and programmes already generated keep pointing at the version they were generated from.
+
+Writing a generation is one transaction, `commit_onboarding_generation`, because responses, provenance, role resolutions and the programme row must all land or none of them. Four PostgREST calls would leave a programme half generated on a failure at the third. The function decides nothing; the plan arrives already decided, and it refuses when 4.2's rule is not met.
+
+#### Who fills it in
+
+At generation the admin records whether **Amzai** or **the client** fills the onboarding, on `programs.onboarding_fill_mode`. It records who is expected to answer; it does not rewrite question ownership, because which questions are the client's is a property of the question and not of who is typing this time.
 
 ### 4.2 Generation is blocked until the team is assigned
 
