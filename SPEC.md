@@ -114,7 +114,7 @@ Both `client_type_id` and `sub_segment_id` are nullable, and null means "applies
 
 - `client_type_id` null: applies to every client type. The generic template for a programme type.
 - `client_type_id` set, `sub_segment_id` null: applies to that whole client type. **One B2B Tech template covers all twenty-five sub-segments**, which is the normal case: the sub-segment is for targeting, not for asking different questions.
-- Both set: applies to that sub-vertical only. Added sparingly, where the questions genuinely differ, and it takes precedence over the vertical-level template.
+- Both set: applies to that sub-segment only. Added sparingly, where the questions genuinely differ, and it takes precedence over the client-type template.
 
 `sub_segment_id` set with `client_type_id` null is meaningless and is rejected by a check constraint: a sub-segment only has meaning inside its client type.
 
@@ -171,7 +171,7 @@ Scoped to one programme. Life is seven days, so a client can return over several
 ### companies
 `id` uuid pk · `name`, `domain` text · `revenue_band`, `employee_band`, `industry`, `country` text · `signals` jsonb · `created_at`, `updated_at` timestamptz
 
-`companies.industry` is **not** the vertical taxonomy and is deliberately left as it is. These are the target companies we market to on a client's behalf, described however the data source described them. `organisations.vertical` classifies Amzai's own clients. Two different populations, two different vocabularies; do not unify them.
+`companies.industry` is **not** the client taxonomy and is deliberately left as it is. These are the target companies we market to on a client's behalf, described however the data source described them. `organisations.client_type_id` classifies Amzai's own clients. Two different populations, two different vocabularies; do not unify them.
 
 ### contacts
 `id` uuid pk · `company_id` uuid fk · `first_name`, `last_name`, `email`, `title`, `seniority`, `function` text · `country` text · `consent_basis` text · `source` text · `suppressed` boolean · `suppressed_at` timestamptz · `suppressed_reason` text · `created_at`, `updated_at` timestamptz
@@ -217,7 +217,7 @@ The organisation's client type and sub-segment, together with the programme's ty
 2. **Client type.** `client_type_id` matches and `sub_segment_id` is null.
 3. **Generic.** Both are null.
 
-Only `active` templates are candidates. Where more than one still matches at the same level, the highest `version` wins. Selection stops at the first level that yields a candidate: a sub-vertical template beats a vertical one even if the vertical one has a higher version number, because specificity is the stronger signal.
+Only `active` templates are candidates. Where more than one still matches at the same level, the highest `version` wins. Selection stops at the first level that yields a candidate: a sub-segment template beats a client-type one even if the client-type one has a higher version number, because specificity is the stronger signal.
 
 An organisation whose client type is Law Firms has no sub-segment, so level 1 never applies to it and selection starts at level 2.
 
