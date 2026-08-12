@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/shell/AppShell";
 import { awaitingFor, listProgrammes } from "@/lib/data/programmes";
 import { getSession } from "@/lib/data/session";
+import { isAdminOrAbove } from "@/lib/tiers";
 
 /**
  * Every module screen renders inside the shell. DESIGN.md section 4.
@@ -34,6 +35,7 @@ export async function ModuleLayout({ children }: { children: ReactNode }) {
     <AppShell
       awaiting={awaiting}
       staffName={session.state === "ok" ? session.staff.fullName : undefined}
+      showAdmin={session.state === "ok" && isAdminOrAbove(session.staff.tier)}
       searchIndex={programmes.map((p) => ({
         id: p.id,
         name: p.name,

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession } from "@/lib/data/session";
+import { isAdminOrAbove } from "@/lib/tiers";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -29,7 +30,7 @@ export async function setFieldOwner(
   if (session.state !== "ok") return { ok: false, message: "Not signed in." };
 
   // Reference data the whole product depends on. SPEC.md section 3.
-  if (session.staff.role !== "admin") {
+  if (!isAdminOrAbove(session.staff.tier)) {
     return { ok: false, message: "Only an admin can change question ownership." };
   }
   if (!OWNERS.includes(owner)) {

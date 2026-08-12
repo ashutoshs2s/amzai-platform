@@ -38,9 +38,19 @@ export const MODULES: Module[] = [
   { order: 8, name: "Logistics", note: "Not built yet" },
 ];
 
+/**
+ * Not a module. Staff and privileges sits below the eight, and only admins and
+ * above can reach it, so the rail asks before showing it.
+ */
+export const ADMIN_MODULE: Module = {
+  order: 0,
+  name: "Staff and privileges",
+  href: "/admin",
+};
+
 /** The module a path belongs to, for marking the rail. */
 export function currentModule(pathname: string): Module | undefined {
-  return MODULES.filter((m) => m.href).find((m) =>
+  return [...MODULES, ADMIN_MODULE].filter((m) => m.href).find((m) =>
     [m.href!, ...(m.alsoUnder ?? [])].some(
       (path) => pathname === path || pathname.startsWith(`${path}/`),
     ),

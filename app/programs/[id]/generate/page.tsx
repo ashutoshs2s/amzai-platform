@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AccessState } from "@/components/AccessState";
 import { loadGenerationContext, planFor } from "@/lib/data/generation";
 import { getSession } from "@/lib/data/session";
+import { isAdminOrAbove } from "@/lib/tiers";
 import { formatDayMonthYear } from "@/lib/time";
 
 import { GeneratePreview } from "./GeneratePreview";
@@ -35,13 +36,12 @@ export default async function GeneratePage({ params }: PageProps<"/programs/[id]
   const context = await loadGenerationContext(id);
   if (!context) notFound();
 
-  if (!["admin", "engagement_lead"].includes(session.staff.role)) {
+  if (!isAdminOrAbove(session.staff.tier)) {
     return (
       <div className="max-w-[720px] p-6">
         <h1 className="text-page-title font-semibold text-ink">Generate onboarding</h1>
         <p className="mt-3 text-body text-slate">
-          Only an admin or an engagement lead can generate onboarding. Ask one of them to
-          set this programme up.
+          Only an admin can generate onboarding. Ask one of them to set this programme up.
         </p>
         <Link
           href={`/programs/${id}`}

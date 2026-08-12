@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { loadGenerationContext, planFor } from "@/lib/data/generation";
 import { getSession } from "@/lib/data/session";
+import { isAdminOrAbove } from "@/lib/tiers";
 import { createClient } from "@/lib/supabase/server";
 import type { AmbiguousRole } from "@/lib/generation/assignment.ts";
 import { ROLE_LABEL, rolesNeeded } from "@/lib/generation/assignment.ts";
@@ -75,8 +76,8 @@ export async function generateOnboarding(input: {
 }): Promise<GenerateResult> {
   const session = await getSession();
   if (session.state !== "ok") return { ok: false, message: "Not signed in." };
-  if (!["admin", "engagement_lead"].includes(session.staff.role)) {
-    return { ok: false, message: "Only an admin or engagement lead can generate onboarding." };
+  if (!isAdminOrAbove(session.staff.tier)) {
+    return { ok: false, message: "Only an admin can generate onboarding." };
   }
 
   const context = await loadGenerationContext(input.programmeId);

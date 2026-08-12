@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AccessState } from "@/components/AccessState";
 import { getQuestionSet } from "@/lib/data/question-sets";
 import { getSession } from "@/lib/data/session";
+import { isAdminOrAbove } from "@/lib/tiers";
 
 import { QuestionSetContent } from "./QuestionSetContent";
 
@@ -29,5 +30,5 @@ export default async function QuestionSetPage({
   // Everyone reads the set; only an admin retunes ownership. The select is
   // rendered read-only rather than hidden, so a delivery lead can see who owns
   // a question without being able to change it.
-  return <QuestionSetContent set={set} canEdit={session.staff.role === "admin"} />;
+  return <QuestionSetContent set={set} canEdit={isAdminOrAbove(session.staff.tier)} />;
 }

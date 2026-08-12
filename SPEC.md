@@ -376,14 +376,47 @@ The control is the same control in both cases, because an assignee on a client-o
 
 ## 5. Access rules
 
-All users are internal staff. Row level security on every table.
+All users are internal staff. Row level security on every table. No anonymous access to any table.
 
-- `admin` and `engagement_lead` see everything.
-- `delivery_lead` and `specialist` see only programmes they are assigned to via `program_assignments`.
-- `data_ops` sees `contacts`, `companies` and `engagement_events` in full. It reaches `organisations` and `programs` only through a restricted view exposing name, type and dates, and has no access to the base tables. No commercial column is readable by `data_ops` anywhere, in this phase or later.
-- No anonymous access to any table.
+Three separate questions, deliberately answered by three separate things. Conflating any two of them is how somebody ends up either over-privileged or unable to do their job.
 
-A policy on `users` that reads a role out of `users` recurses. Role lookups therefore go through a `SECURITY DEFINER` helper function, which is the single place any policy asks who the current user is and what they may see.
+| | Question | Where it lives |
+|---|---|---|
+| **Tier** | How many programmes does this person see? | `users.tier` |
+| **Function** | Which tables and columns may they touch within that? | `staff_functions`, held via `user_staff_functions` |
+| **Role on programme** | What job do they do on this one? | `program_assignments.role_on_program` |
+
+### 5.1 The four tiers
+
+- **`super_admin`** — everything, plus the staff screen. Exactly one, held by a unique index. Cannot be demoted, deactivated or deleted by anyone including themselves: a trigger refuses it regardless of the caller, including the service role and the table owner. Moving it takes `set_super_admin()`, on which execute is revoked from every application role, so it can only be run from a SQL editor with owner rights.
+- **`admin`** — every client, programme and user. Creates clients, generates onboarding, manages everyone below. Cannot touch the super admin and cannot create another.
+- **`manager`** — every programme under the organisations they hold in `organisation_managers`, and the teams inside them. Cannot create clients and cannot change anybody's tier.
+- **`user`** — only the programmes they are assigned to.
+
+**Access is the union of tier scope and assignment scope.** A manager personally assigned to a programme outside their organisations keeps seeing it, so promoting somebody can never quietly remove access they had.
+
+Manager access is derived through the organisation, never copied onto a programme. A new programme under a held organisation is visible the moment it exists, so nobody has to remember to grant it and nobody can forget to.
+
+### 5.2 Functions
+
+A function is a row, not an enum, so adding one is an `INSERT` rather than a migration. Capabilities are columns on it:
+
+| function | audience | commercial | onboarding | programme scope |
+|---|---|---|---|---|
+| `data_ops` | full | none | none | tier |
+| `finance` *(when needed)* | none | full | none | **all** |
+
+`program_scope` of `all` widens which programmes a function can see independently of the tier, which is what makes finance — commercial across everything — expressible without schema change. A function needing a capability outside these four would still need a migration; no column list avoids that.
+
+**Deny wins.** If somebody held both `data_ops` and `finance`, a permissive union would quietly lift a restriction imposed on purpose. So a function denying commercial access denies it outright. The consequence is that a data ops person cannot also hold finance without the data ops function being removed first, which is correct and, more to the point, visible.
+
+Row level security cannot hide a column, so anyone denied commercial access is kept off `organisations` and `programs` entirely and reads `organisations_restricted` and `programs_restricted` instead. Those views are scoped: they show what the reader's tier allows, not everything with the commercial columns stripped.
+
+### 5.3 How policies ask
+
+A policy that reads the tier out of `users` recurses. Every policy therefore asks a `SECURITY DEFINER` helper — `current_user_tier`, `can_see_program`, `can_manage`, `can_manage_program`, `manages_organisation`, `denied_commercial`, `denied_onboarding`, `can_see_audience` — which is the single place any of this is decided.
+
+Proven by `supabase/tests/test_privilege_tiers.sql`, which impersonates each tier and asserts what it sees and what it is refused, including every denial. It replaced `test_row_level_security.sql`, whose five roles no longer exist.
 
 Client-facing surfaces never touch the database from the browser. They read and write through server-side routes on `client.amzai.events` that run under the service role, which bypasses row level security. The token check and the session check in those routes are therefore the entire access control, and every one of them must verify the programme in the URL matches the programme the token or session was issued for. A route that trusts the slug rather than the token is a data breach.
 

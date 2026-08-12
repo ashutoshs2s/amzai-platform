@@ -15,7 +15,8 @@ import { createClient } from "@/lib/supabase/server";
 export type Staff = {
   id: string;
   fullName: string;
-  role: string;
+  /** Privilege tier: super_admin, admin, manager, user. See lib/tiers.ts. */
+  tier: string;
 };
 
 export type SessionState =
@@ -42,7 +43,7 @@ export async function getSession(): Promise<SessionState> {
   // sees nothing here, which is not an error.
   const { data } = await supabase
     .from("users")
-    .select("id, full_name, role")
+    .select("id, full_name, tier")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -50,6 +51,6 @@ export async function getSession(): Promise<SessionState> {
 
   return {
     state: "ok",
-    staff: { id: data.id, fullName: data.full_name, role: data.role },
+    staff: { id: data.id, fullName: data.full_name, tier: data.tier },
   };
 }

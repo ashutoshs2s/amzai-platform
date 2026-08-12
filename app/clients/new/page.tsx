@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AccessState } from "@/components/AccessState";
 import { listClientTypes } from "@/lib/data/taxonomy";
 import { getSession } from "@/lib/data/session";
+import { isAdminOrAbove } from "@/lib/tiers";
 import { createClient } from "@/lib/supabase/server";
 
 import { NewClientForm } from "./NewClientForm";
@@ -28,7 +29,7 @@ export default async function NewClientPage() {
     );
   }
 
-  if (session.staff.role !== "admin") {
+  if (!isAdminOrAbove(session.staff.tier)) {
     return (
       <div className="max-w-[720px]">
         <h1 className="text-page-title font-semibold text-ink">New client</h1>
@@ -48,7 +49,7 @@ export default async function NewClientPage() {
     listClientTypes(),
     supabase
       .from("users")
-      .select("id, full_name, role")
+      .select("id, full_name, tier")
       .eq("active", true)
       .order("full_name"),
     /*
@@ -81,7 +82,7 @@ export default async function NewClientPage() {
       staff={(staff ?? []).map((s) => ({
         id: s.id,
         name: s.full_name,
-        role: s.role,
+        role: s.tier,
       }))}
       modules={[...newestModules.values()]}
     />

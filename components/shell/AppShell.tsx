@@ -24,11 +24,13 @@ export function AppShell({
   awaiting,
   searchIndex,
   staffName,
+  showAdmin,
 }: {
   children: ReactNode;
   awaiting: AwaitingSummary;
   searchIndex: SearchEntry[];
   staffName?: string;
+  showAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const activeModule = currentModule(pathname);
@@ -40,7 +42,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-canvas">
-      <LeftRail currentHref={activeModule?.href} />
+      <LeftRail currentHref={activeModule?.href} showAdmin={showAdmin} />
       <TopBar
         programmeContext={
           programme ? { id: programme.id, name: programme.name } : undefined

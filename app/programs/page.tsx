@@ -1,6 +1,7 @@
 import { AccessState } from "@/components/AccessState";
 import { PROGRAMME_TYPE_LABEL, listProgrammes } from "@/lib/data/programmes";
 import { getSession } from "@/lib/data/session";
+import { isAdminOrAbove } from "@/lib/tiers";
 import { listClientTypes } from "@/lib/data/taxonomy";
 
 import { ProgramsContent } from "./ProgramsContent";
@@ -47,7 +48,7 @@ export default async function ProgramsPage() {
 
   return (
     <ProgramsContent
-      canCreate={session.staff.role === "admin"}
+      canCreate={isAdminOrAbove(session.staff.tier)}
       nowIso={new Date().toISOString()}
       programmes={programmes}
       owners={owners}

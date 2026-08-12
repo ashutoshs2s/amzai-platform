@@ -35,12 +35,12 @@ const db = createClient(url, serviceRoleKey, {
 const SEED_PASSWORD = "amzai-dev-password";
 
 const STAFF = [
-  { email: "ash@amzai.ai", full_name: "Ash Prasad", role: "admin" },
-  { email: "priya.raman@amzai.ai", full_name: "Priya Raman", role: "admin" },
-  { email: "daniel.okoro@amzai.ai", full_name: "Daniel Okoro", role: "engagement_lead" },
-  { email: "sana.iqbal@amzai.ai", full_name: "Sana Iqbal", role: "delivery_lead" },
-  { email: "tom.whitfield@amzai.ai", full_name: "Tom Whitfield", role: "specialist" },
-  { email: "ana.beltran@amzai.ai", full_name: "Ana Beltrán", role: "data_ops" },
+  { email: "ash@amzai.ai", full_name: "Ash Prasad", tier: "super_admin" },
+  { email: "priya.raman@amzai.ai", full_name: "Priya Raman", tier: "admin" },
+  { email: "daniel.okoro@amzai.ai", full_name: "Daniel Okoro", tier: "manager" },
+  { email: "sana.iqbal@amzai.ai", full_name: "Sana Iqbal", tier: "user" },
+  { email: "tom.whitfield@amzai.ai", full_name: "Tom Whitfield", tier: "user" },
+  { email: "ana.beltran@amzai.ai", full_name: "Ana Beltrán", tier: "user" },
 ];
 
 function fail(step, error) {
@@ -453,6 +453,6 @@ console.log(
 console.log("\nDone.\n");
 console.log("Sign in with any of these once staff sign-in exists:");
 for (const person of STAFF) {
-  console.log(`  ${person.email.padEnd(28)} ${person.role}`);
+  console.log(`  ${person.email.padEnd(28)} ${person.tier}`);
 }
 console.log(`\nPassword for all of them: ${SEED_PASSWORD}`);

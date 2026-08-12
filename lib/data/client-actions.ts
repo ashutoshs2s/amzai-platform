@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession } from "@/lib/data/session";
+import { isAdminOrAbove } from "@/lib/tiers";
 import { createClient } from "@/lib/supabase/server";
 import { isValidSlug, slugify, uniqueSlug } from "@/lib/slug";
 
@@ -53,7 +54,7 @@ export async function createClientProgramme(
 ): Promise<CreateResult> {
   const session = await getSession();
   if (session.state !== "ok") return { ok: false, message: "Not signed in." };
-  if (session.staff.role !== "admin") {
+  if (!isAdminOrAbove(session.staff.tier)) {
     return { ok: false, message: "Only an admin can create a client." };
   }
 
