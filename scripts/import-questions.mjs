@@ -20,6 +20,8 @@ import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 
+import { isExactDuplicate, NEAR_DUPLICATE, similarity } from "../lib/generation/matching.ts";
+
 const WORKBOOK = "data/Amzai_Dedicated_Team_Onboarding-4.xlsx";
 const DRY = process.argv.includes("--dry");
 
@@ -124,19 +126,12 @@ function parseSheet(sheetName) {
 /* Overlaps                                                                   */
 /* -------------------------------------------------------------------------- */
 
-const normalise = (s) =>
-  s.toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+/*
+  The duplicate rule lives in lib/generation/matching.ts and is imported, not
+  copied. Generation uses the same one. If this file had its own, the overlap
+  report printed here could promise something generation would not do.
+*/
 
-/** Similarity on word bags. Enough to catch a rewording, cheap to reason about. */
-function similarity(a, b) {
-  const wa = new Set(normalise(a).split(" "));
-  const wb = new Set(normalise(b).split(" "));
-  let shared = 0;
-  for (const w of wa) if (wb.has(w)) shared += 1;
-  return (2 * shared) / (wa.size + wb.size);
-}
-
-const NEAR = 0.8;
 
 /* -------------------------------------------------------------------------- */
 /* Parse everything, then report                                              */
@@ -189,12 +184,12 @@ for (const module of parsed.filter((p) => p.kind === "situational")) {
     for (const question of section.questions) {
       let best = null;
       for (const c of coreQuestions) {
-        if (normalise(question) === normalise(c.question)) {
+        if (isExactDuplicate(question, c.question)) {
           best = { kind: "exact", score: 1, coreQuestion: c.question, where: c.where };
           break;
         }
         const score = similarity(question, c.question);
-        if (score >= NEAR && (!best || score > best.score)) {
+        if (score >= NEAR_DUPLICATE && (!best || score > best.score)) {
           best = { kind: "near", score, coreQuestion: c.question, where: c.where };
         }
       }
