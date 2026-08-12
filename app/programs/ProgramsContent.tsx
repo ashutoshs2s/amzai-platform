@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -42,12 +43,15 @@ export function ProgramsContent({
   owners,
   types,
   clientTypes,
+  canCreate,
 }: {
   nowIso: string;
   programmes: ProgrammeRow[];
   owners: string[];
   types: { value: string; label: string }[];
   clientTypes: ClientType[];
+  /** Creating a client is an admin job. SPEC.md section 5. */
+  canCreate: boolean;
 }) {
   const now = new Date(nowIso);
   const router = useRouter();
@@ -379,7 +383,23 @@ export function ProgramsContent({
 
   return (
     <div>
-      <h1 className="text-page-title font-semibold">Programs</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <h1 className="text-page-title font-semibold">Programs</h1>
+        {/*
+          The one action that starts something here, so it is the one primary
+          on the screen. Admin only, and absent rather than disabled for
+          everyone else: a control that can never work is not a control.
+          DESIGN.md section 5.
+        */}
+        {canCreate && (
+          <Link
+            href="/clients/new"
+            className="inline-flex h-8 items-center justify-center rounded-base bg-accent px-3 text-body font-medium text-surface transition-colors hover:opacity-90"
+          >
+            New client
+          </Link>
+        )}
+      </div>
 
       {/*
         The four counts, as controls rather than a caption: hairline border,

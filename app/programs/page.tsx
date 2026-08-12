@@ -47,6 +47,7 @@ export default async function ProgramsPage() {
 
   return (
     <ProgramsContent
+      canCreate={session.staff.role === "admin"}
       nowIso={new Date().toISOString()}
       programmes={programmes}
       owners={owners}

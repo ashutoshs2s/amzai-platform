@@ -18,7 +18,8 @@
     "verify-write": "node --env-file=.env.local scripts/verify-write.mjs",
     "import-questions": "node --env-file=.env.local scripts/import-questions.mjs",
     "test-generation": "node scripts/test-generation.mjs",
-    "test-import": "node scripts/test-import.mjs"
+    "test-import": "node scripts/test-import.mjs",
+    "test-slug": "node scripts/test-slug.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

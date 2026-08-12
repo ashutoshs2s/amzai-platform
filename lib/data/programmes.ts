@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { PROGRAMME_TYPE_LABEL } from "@/lib/programme-types";
 import { daysBetween } from "@/lib/time";
 
 /**
@@ -17,13 +18,7 @@ import { daysBetween } from "@/lib/time";
  * programmes and nobody else's.
  */
 
-export const PROGRAMME_TYPE_LABEL: Record<string, string> = {
-  event: "Event",
-  retainer: "Retainer",
-  dedicated_team: "Dedicated team",
-  series: "Series",
-  research: "Research",
-};
+export { PROGRAMME_TYPE_LABEL } from "@/lib/programme-types";
 
 export type ProgrammeTime =
   | { kind: "event"; milestoneDate: string }

@@ -19,10 +19,16 @@ export type Module = {
   href?: string;
   /** Why it is not available yet. Shown on hover. */
   note?: string;
+  /**
+   * Other paths belonging to this module. Creating a client is part of Clients
+   * and Programs but does not live under /programs, and the rail must not go
+   * blank while an operator is halfway through setting one up.
+   */
+  alsoUnder?: string[];
 };
 
 export const MODULES: Module[] = [
-  { order: 1, name: "Clients and Programs", href: "/programs" },
+  { order: 1, name: "Clients and Programs", href: "/programs", alsoUnder: ["/clients"] },
   { order: 2, name: "Onboarding", href: "/question-sets" },
   { order: 3, name: "Delivery Operations", note: "Not built yet" },
   { order: 4, name: "Client Dashboards", note: "Not built yet" },
@@ -34,7 +40,9 @@ export const MODULES: Module[] = [
 
 /** The module a path belongs to, for marking the rail. */
 export function currentModule(pathname: string): Module | undefined {
-  return MODULES.filter((m) => m.href).find(
-    (m) => pathname === m.href || pathname.startsWith(`${m.href}/`),
+  return MODULES.filter((m) => m.href).find((m) =>
+    [m.href!, ...(m.alsoUnder ?? [])].some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`),
+    ),
   );
 }

@@ -251,6 +251,14 @@ The order matters, and it is not a suggestion. Done out of order, a programme ge
 3. **Assign the Amzai team** in `program_assignments`, each with a `role_on_program`.
 4. **Generate onboarding**, after reviewing the plan. Section 4.1a.
 
+Steps 1 to 3 are one screen, `/clients/new`, and one transaction, `create_client_programme`. Splitting them across four PostgREST calls would let the third fail and leave an organisation and a programme with no team — the exact half-built state this order exists to prevent, and one nobody would be told about. The function refuses a programme with no team rather than relying on the form to.
+
+An organisation is reused where its slug already exists, because a second programme for the same client is the normal case and a duplicate organisation row would split their history.
+
+The screen stops at step 3 and hands off to the generation preview. It never generates, because generation has a plan to approve and freezes what it writes.
+
+Creating a client is an admin job. The action refuses anyone else, and the button is absent rather than disabled for them.
+
 ### 4.1 Resolving the question set
 
 A programme's questions are not one template. They are resolved at generation from four things: the organisation's **client type**, its **sub-segment**, the **programme type**, and any **situational modules** chosen for that programme.
