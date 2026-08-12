@@ -260,3 +260,121 @@ create policy psm_update on public.program_situational_modules
 drop policy if exists psm_delete on public.program_situational_modules;
 create policy psm_delete on public.program_situational_modules
   for delete to authenticated using ((select public.can_manage()));
+
+
+-- -----------------------------------------------------------------------------
+-- Committing a generation
+--
+-- Generation writes responses, the record of which sets they came from, the
+-- role resolutions and the programme itself. Through PostgREST that is four
+-- round trips and four transactions, and a failure at the third leaves a
+-- programme half generated: questions present, provenance missing, and the
+-- generated_at flag unset so the next attempt writes them all again.
+--
+-- So the writes happen here instead, in one transaction that either all lands
+-- or none does. The decision of WHICH questions is not made here; it is made in
+-- lib/generation/resolve.ts and arrives already decided. This function only
+-- writes, and refuses when the rules in SPEC.md section 4.2 are not met.
+--
+-- SECURITY INVOKER, deliberately. It runs as the signed-in staff member, so row
+-- level security still decides what they may write and the audit triggers still
+-- record them as the actor.
+-- -----------------------------------------------------------------------------
+
+create or replace function public.commit_onboarding_generation(
+  p_program_id  uuid,
+  p_fill_mode   text,
+  p_modules     text[],
+  p_responses   jsonb,
+  p_sources     jsonb,
+  p_resolutions jsonb
+)
+returns integer
+language plpgsql
+security invoker
+set search_path = public, pg_temp
+as $$
+declare
+  v_generated_at timestamptz;
+  v_assignments  integer;
+  v_written      integer;
+  v_actor        uuid := auth.uid();
+begin
+  select onboarding_generated_at into v_generated_at
+  from public.programs where id = p_program_id for update;
+
+  if not found then
+    raise exception 'That programme does not exist, or you cannot see it.';
+  end if;
+
+  -- Frozen. A second generation would rewrite a live programme's questions.
+  if v_generated_at is not null then
+    raise exception 'Onboarding for this programme was already generated on %. A generated set is frozen.', v_generated_at;
+  end if;
+
+  -- SPEC.md 4.2. Without a team every field generates unassigned, and
+  -- unassigned work is invisible work.
+  select count(*) into v_assignments
+  from public.program_assignments where program_id = p_program_id;
+
+  if v_assignments = 0 then
+    raise exception 'Assign at least one person to this programme before generating onboarding.';
+  end if;
+
+  delete from public.program_situational_modules where program_id = p_program_id;
+  if p_modules is not null and array_length(p_modules, 1) > 0 then
+    insert into public.program_situational_modules (program_id, module_slug)
+    select p_program_id, unnest(p_modules);
+  end if;
+
+  insert into public.onboarding_responses (
+    program_id, template_field_id, owner, assignee_id, due_date, blocking, is_generic
+  )
+  select
+    p_program_id, r.template_field_id, r.owner, r.assignee_id, r.due_date,
+    r.blocking, r.is_generic
+  from jsonb_to_recordset(p_responses) as r(
+    template_field_id uuid,
+    owner             text,
+    assignee_id       uuid,
+    due_date          date,
+    blocking          boolean,
+    is_generic        boolean
+  );
+  get diagnostics v_written = row_count;
+
+  if v_written = 0 then
+    raise exception 'That would generate no questions at all. Import the workbook first.';
+  end if;
+
+  insert into public.program_onboarding_sources (program_id, template_id, role)
+  select p_program_id, s.template_id, s.role
+  from jsonb_to_recordset(p_sources) as s(template_id uuid, role text);
+
+  /*
+    Recorded so the next generation does not ask again, including a deliberate
+    "leave unassigned", which is a decision and not a failure to decide.
+    SPEC.md 4.5.
+  */
+  if p_resolutions is not null and jsonb_array_length(p_resolutions) > 0 then
+    insert into public.program_role_resolutions
+      (program_id, role_on_program, user_id, resolved_by)
+    select p_program_id, x.role_on_program, x.user_id, v_actor
+    from jsonb_to_recordset(p_resolutions) as x(role_on_program text, user_id uuid)
+    on conflict (program_id, role_on_program)
+      do update set user_id = excluded.user_id,
+                    resolved_by = excluded.resolved_by,
+                    resolved_at = clock_timestamp();
+  end if;
+
+  update public.programs
+  set onboarding_fill_mode = p_fill_mode,
+      onboarding_generated_at = clock_timestamp()
+  where id = p_program_id;
+
+  return v_written;
+end;
+$$;
+
+revoke all on function public.commit_onboarding_generation(uuid, text, text[], jsonb, jsonb, jsonb) from public, anon;
+grant execute on function public.commit_onboarding_generation(uuid, text, text[], jsonb, jsonb, jsonb) to authenticated;
