@@ -42,6 +42,25 @@ const SHEETS = [
   { sheet: "New Market Entry",      slug: "new_market_entry",      kind: "situational", clientType: "conference_organizers", subSegment: null },
 ];
 
+/*
+  The one thing the workbook says about ownership, said by its own vocabulary.
+
+  A "Record" section asks for links to recordings of calls Amzai ran. Those are
+  Amzai's artefacts, not the client's, and asking a client for them would be
+  asking them for something we hold. It appears in three sheets under exactly
+  this name.
+
+  Everything else imports as the client's, which is what the workbook is: a set
+  of questions Amzai asks a client. Nothing is inferred from the wording of an
+  individual question, because that would be a heuristic, and a wrong owner is
+  invisible until a deadline is missed. Ownership beyond this is a judgement,
+  and it is corrected in the app, per question, without re-importing.
+*/
+const AMZAI_OWNED_SECTIONS = new Set(["Record"]);
+
+const ownerFor = (section) =>
+  AMZAI_OWNED_SECTIONS.has(section.trim()) ? "amzai" : "client";
+
 /* -------------------------------------------------------------------------- */
 /* Parsing                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -157,6 +176,24 @@ console.log(`  ${"total".padEnd(24)}${String(parsed.reduce((n, p) => n + p.secti
 console.log("\n  Plan is not a question set and is not imported.");
 
 /*
+  Ownership is printed on every run for the same reason the counts are: it is a
+  rule applied to somebody else's spreadsheet, and a silent rule is one nobody
+  checks.
+*/
+const amzaiOwned = parsed.flatMap((p) =>
+  p.sections
+    .filter((s) => AMZAI_OWNED_SECTIONS.has(s.section.trim()))
+    .map((s) => ({ sheet: p.sheet, section: s.section, count: s.questions.length })),
+);
+const amzaiTotal = amzaiOwned.reduce((n, s) => n + s.count, 0);
+console.log(
+  `\n  Ownership: ${total - amzaiTotal} client, ${amzaiTotal} Amzai.` +
+    ` Amzai-owned sections are ${[...AMZAI_OWNED_SECTIONS].join(", ")}:`,
+);
+for (const s of amzaiOwned) console.log(`    ${s.sheet} / ${s.section}  ${s.count}`);
+console.log("  Everything else is the client's. Retune per question in the app.");
+
+/*
   A miscalibration shows up here as a sheet with almost no questions, or almost
   no sections. Both are printed on every run for exactly that reason.
 */
@@ -267,20 +304,14 @@ for (const p of parsed) {
       const overlap = overlaps.find(
         (o) => o.slug === p.slug && o.question === question,
       );
-      /*
-        The workbook has two columns, Questions and Responses. It carries no
-        owner, no deadline and no blocking flag, so every question is imported
-        with the same defaults and nothing here is inferred from the wording.
-        Guessing per question would be a heuristic, and a wrong guess about who
-        owns a question stays invisible until a deadline is missed. Tuning them
-        is a later pass, done in the app against real programmes.
-      */
+      // The workbook carries no deadline and no blocking flag either, so those
+      // take one default for every question and are tuned in the app.
       fields.push({
         section: section.section,
         sort_order: order,
         question,
         guidance: null,
-        default_owner: "client",
+        default_owner: ownerFor(section.section),
         default_assignee_role: "delivery_lead",
         default_offset_type: "weeks_from_start",
         default_offset_value: 2,
@@ -291,9 +322,22 @@ for (const p of parsed) {
     }
   }
 
-  // The hash covers everything that would change a generated question set.
+  /*
+    The hash covers what the WORKBOOK says: the questions, their sections and
+    their order. Not the defaults this script applies on top.
+
+    That distinction matters. Owner is editable in the app, and the importer
+    reconciles its own defaults below. If the hash covered owner, then either an
+    admin's correction would look like a changed sheet and spawn a phantom
+    version, or changing a default here would silently do nothing.
+  */
+  const content = fields.map((f) => ({
+    section: f.section,
+    sort_order: f.sort_order,
+    question: f.question,
+  }));
   const hash = createHash("sha256")
-    .update(JSON.stringify({ slug: p.slug, kind: p.kind, fields }))
+    .update(JSON.stringify({ slug: p.slug, kind: p.kind, content }))
     .digest("hex");
 
   const { data: latest, error: latestError } = await db
@@ -306,7 +350,43 @@ for (const p of parsed) {
   fail(`read ${p.slug}`, latestError);
 
   if (latest && latest.content_hash === hash) {
-    console.log(`  unchanged  ${p.sheet.padEnd(24)} v${latest.version}`);
+    /*
+      The questions are unchanged, so no new version. The defaults this script
+      applies may still have changed, though, and owner is one of them.
+
+      Only where nobody has decided otherwise. default_owner_set_by non-null
+      means a person made a judgement in the app, and an import must not
+      overrule a person. That is the whole point of the column.
+    */
+    const { data: existing, error: existingError } = await db
+      .from("onboarding_template_fields")
+      .select("id, sort_order, default_owner, default_owner_set_by")
+      .eq("template_id", latest.id);
+    fail(`read fields for ${p.slug}`, existingError);
+
+    let retuned = 0;
+    let leftAlone = 0;
+    for (const field of fields) {
+      const row = existing.find((e) => e.sort_order === field.sort_order);
+      if (!row || row.default_owner === field.default_owner) continue;
+      if (row.default_owner_set_by !== null) {
+        leftAlone += 1;
+        continue;
+      }
+      const { error: ownerError } = await db
+        .from("onboarding_template_fields")
+        .update({ default_owner: field.default_owner })
+        .eq("id", row.id);
+      fail(`retune owner on ${p.slug}`, ownerError);
+      retuned += 1;
+    }
+
+    const note =
+      retuned > 0 || leftAlone > 0
+        ? `  ${retuned} owner default${retuned === 1 ? "" : "s"} updated` +
+          (leftAlone > 0 ? `, ${leftAlone} left as set in the app` : "")
+        : "";
+    console.log(`  unchanged  ${p.sheet.padEnd(24)} v${latest.version}${note}`);
     continue;
   }
 

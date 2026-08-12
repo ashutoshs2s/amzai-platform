@@ -1,5 +1,5 @@
 import { ModuleLayout } from "@/components/shell/ModuleLayout";
 
-export default function ProgramsLayout({ children }: LayoutProps<"/programs">) {
+export default function QuestionSetsLayout({ children }: LayoutProps<"/question-sets">) {
   return <ModuleLayout>{children}</ModuleLayout>;
 }

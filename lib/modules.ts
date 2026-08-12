@@ -23,7 +23,7 @@ export type Module = {
 
 export const MODULES: Module[] = [
   { order: 1, name: "Clients and Programs", href: "/programs" },
-  { order: 2, name: "Onboarding", note: "Lives on the programme record for now" },
+  { order: 2, name: "Onboarding", href: "/question-sets" },
   { order: 3, name: "Delivery Operations", note: "Not built yet" },
   { order: 4, name: "Client Dashboards", note: "Not built yet" },
   { order: 5, name: "Audience and Data Ops", note: "Not built yet" },

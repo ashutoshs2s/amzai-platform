@@ -120,7 +120,9 @@ One row per workbook sheet per version, unique on `(slug, version)`.
 
 `program_type` is nullable, meaning any: a core or situational set asks the same questions of an event and a retainer.
 
-`content_hash` is the hash of the sheet as imported. Equal hash means nothing changed, so re-importing writes nothing.
+`content_hash` is the hash of what the **workbook** says: the questions, their sections and their order. Not the defaults the importer applies on top. Equal hash means the sheet did not change, so no new version.
+
+The distinction matters because owner is editable in the app. If the hash covered owner, an admin's correction would look like a changed sheet and spawn a phantom version. Instead, on a re-import of an unchanged sheet, the importer reconciles its own defaults: it updates `default_owner` where `default_owner_set_by` is null, leaves every hand-set value alone, and reports both counts.
 
 **A version is immutable apart from `active`.** A trigger refuses any other change. Withdrawing a bad version is legitimate; rewriting one is not, because a programme generated from it reads its questions through it.
 
@@ -135,13 +137,23 @@ Both `client_type_id` and `sub_segment_id` are nullable, and null means "applies
 The point of the hierarchy is that adding the twenty-sixth B2B Tech sub-segment should not mean writing a twenty-sixth template. Write one, and specialise only where a real difference in the questions justifies a second.
 
 ### onboarding_template_fields
-`id` uuid pk · `template_id` uuid fk · `section` text · `sort_order` integer · `question` text · `guidance` text · `default_owner` text (client, amzai, both) · `default_assignee_role` text nullable (engagement_lead, delivery_lead, specialist, data_ops) · `default_offset_type` text (weeks_from_start, days_before_milestone) · `default_offset_value` integer · `blocking` boolean · `duplicate_kind` text nullable (exact, near) · `duplicate_of` text nullable · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `template_id` uuid fk · `section` text · `sort_order` integer · `question` text · `guidance` text · `default_owner` text (client, amzai, both) · `default_assignee_role` text nullable (engagement_lead, delivery_lead, specialist, data_ops) · `default_offset_type` text (weeks_from_start, days_before_milestone) · `default_offset_value` integer · `blocking` boolean · `duplicate_kind` text nullable (exact, near) · `duplicate_of` text nullable · `default_owner_set_by` uuid fk users nullable · `default_owner_set_at` timestamptz nullable · `created_at`, `updated_at` timestamptz
 
-**Append-only.** A trigger refuses UPDATE, DELETE and TRUNCATE, the same treatment `audit_events` gets and for a related reason: a generated response reads its question text through this table, so editing a row in place would reword a question on every programme ever generated from it. Changing a question means importing a new version.
+**Append-only apart from `default_owner`.** A trigger refuses DELETE and TRUNCATE outright, and refuses an UPDATE that changes anything but the owner. It is the same treatment `audit_events` gets, relaxed by exactly one column.
+
+The reason it is safe to relax by that one: a generated response takes a **copy** of `owner` at generation, while it reads its question **text** through this table. So changing an owner changes what future programmes generate and cannot reach back into a live one, which is the line section 4.1a draws. Rewording a question would reach back, so it stays refused. Changing a question means importing a new version.
+
+`default_owner_set_by` records who decided. Null means the value is still the importer's default, and the importer may update it on a later run. Non-null means a person made a judgement in the app, and no import overrides it. Every change is audited.
 
 `duplicate_kind` and `duplicate_of` are what the importer observed when it read the sheet, kept as provenance. They are not what generation acts on; generation resolves duplicates over the set it is actually building. See section 4.1.
 
-The workbook carries two columns, questions and responses, and no owner, deadline or blocking flag. Every imported question therefore takes the same defaults, and nothing is inferred from a question's wording. Tuning them is done in the app against real programmes, because guessing per question would be a heuristic and a wrong owner is invisible until a deadline is missed.
+The workbook carries two columns, questions and responses. It says nothing about who answers, when, or what blocks.
+
+The importer applies one ownership rule, and it comes from the workbook's own vocabulary rather than from reading questions: **a section named `Record` is Amzai's**, because those questions ask for links to recordings of calls Amzai ran, and asking a client for them would be asking them for something we hold. It appears in three sheets and covers six questions. Everything else imports as the client's, which is what the workbook is.
+
+Nothing is inferred from the wording of an individual question. That would be a heuristic, and a wrong owner is invisible until a deadline is missed.
+
+**Ownership beyond that rule is a judgement, and the app is where it is corrected**, per question, at `/question-sets`, without re-importing. Deadlines and blocking flags still take one default for every question and are tuned on the programme.
 
 A due date is expressed as an offset, not as a week label, so it resolves to a real date without anyone interpreting it. `weeks_from_start` counts forward from the programme's `start_date`; `days_before_milestone` counts back from `fixed_milestone_date`. Retainers and dedicated teams use the first, events use the second. The offset is resolved into `onboarding_responses.due_date` once, when the response row is created. See section 7.
 
