@@ -272,6 +272,14 @@ for (const p of parsed) {
       const overlap = overlaps.find(
         (o) => o.slug === p.slug && o.question === question,
       );
+      /*
+        The workbook has two columns, Questions and Responses. It carries no
+        owner, no deadline and no blocking flag, so every question is imported
+        with the same defaults and nothing here is inferred from the wording.
+        Guessing per question would be a heuristic, and a wrong guess about who
+        owns a question stays invisible until a deadline is missed. Tuning them
+        is a later pass, done in the app against real programmes.
+      */
       fields.push({
         section: section.section,
         sort_order: order,
@@ -307,6 +315,12 @@ for (const p of parsed) {
     continue;
   }
 
+  /*
+    The previous version is left exactly as it was, active flag included.
+    Generation asks for the highest version of a slug, so a new version wins
+    without anything being edited, and deactivating a bad version by hand still
+    falls back to the one before it.
+  */
   const version = latest ? latest.version + 1 : 1;
   const { data: template, error: insertError } = await db
     .from("onboarding_templates")
