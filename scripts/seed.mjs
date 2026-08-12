@@ -158,13 +158,13 @@ for (const o of orgs) console.log(`  ${o.name}`);
 /* -------------------------------------------------------------------------- */
 
 console.log("Template");
-// No unique constraint on the template name, so upsert has nothing to conflict
-// on. Select first, insert only if absent. Adding a constraint to the schema
-// purely to make seeding convenient would be the tail wagging the dog.
+// Select first, insert only if absent. The slug is the seed's own, distinct
+// from anything the workbook importer writes, so seeding a development machine
+// and importing the real question sets never collide.
 const { data: found, error: findError } = await db
   .from("onboarding_templates")
   .select("id, name, version")
-  .eq("name", "B2B Tech event")
+  .eq("slug", "seed_b2b_tech_event")
   .eq("version", 1)
   .maybeSingle();
 fail("find template", findError);
@@ -175,6 +175,8 @@ if (!template) {
     .from("onboarding_templates")
     .insert({
       name: "B2B Tech event",
+      slug: "seed_b2b_tech_event",
+      kind: "segment",
       program_type: "event",
       client_type_id: typeBySlug.b2b_tech,
       sub_segment_id: null,
