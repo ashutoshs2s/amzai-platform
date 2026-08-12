@@ -82,7 +82,12 @@ function fillOf(cell) {
 }
 
 /**
- * Rows of a sheet: the text of the first non-empty cell, and its fill.
+ * Rows of a sheet: the text of the first non-empty cell, its fill, and the
+ * spreadsheet row it came from.
+ *
+ * The row number is carried all the way through to the warnings below. A
+ * warning that says a row looks wrong without saying which row is a warning
+ * somebody has to go hunting for, and a hunt is what gets skipped.
  */
 function rowsOf(sheetName) {
   const ws = book.Sheets[sheetName];
@@ -95,7 +100,12 @@ function rowsOf(sheetName) {
       const cell = ws[XLSX.utils.encode_cell({ r, c })];
       const text = cell?.v === undefined ? "" : String(cell.v).trim();
       if (!text) continue;
-      rows.push({ text, fill: fillOf(cell) });
+      rows.push({
+        text,
+        fill: fillOf(cell),
+        row: r + 1, // 1-based, as Excel shows it
+        column: XLSX.utils.encode_col(c),
+      });
       break; // first non-empty cell in the row decides
     }
   }
@@ -128,11 +138,11 @@ function parseSheet(sheetName) {
   let current = null;
   for (const row of body) {
     if (row.fill !== questionFill) {
-      current = { section: row.text, questions: [] };
+      current = { section: row.text, row: row.row, column: row.column, questions: [] };
       sections.push(current);
     } else {
       if (!current) {
-        current = { section: "General", questions: [] };
+        current = { section: "General", row: row.row, column: row.column, questions: [] };
         sections.push(current);
       }
       current.questions.push(row.text);
@@ -192,6 +202,52 @@ console.log(
 );
 for (const s of amzaiOwned) console.log(`    ${s.sheet} / ${s.section}  ${s.count}`);
 console.log("  Everything else is the client's. Retune per question in the app.");
+
+/*
+  Probable mis-styled questions.
+
+  A row styled like a heading but reading like a question is almost certainly a
+  question whose fill is wrong in the workbook. It classifies as a section, so
+  it is never asked, and the loss is silent: the counts still look plausible
+  because the sheet simply appears to have more sections than it does.
+
+  This WARNS and changes nothing. The classification stays exactly as the
+  colours say it is. Correcting the fill in the workbook is exact; a rule that
+  reclassified on wording would be a heuristic, and a heuristic would eventually
+  mis-classify something with nobody able to say which question went missing.
+*/
+const SECTION_NAME_LIMIT = 80;
+
+const probableQuestions = parsed.flatMap((p) =>
+  p.sections
+    .filter(
+      (s) => s.section.trim().endsWith("?") || s.section.trim().length > SECTION_NAME_LIMIT,
+    )
+    .map((s) => ({
+      sheet: p.sheet,
+      row: s.row,
+      column: s.column,
+      section: s.section.trim(),
+      questions: s.questions.length,
+      why: s.section.trim().endsWith("?") ? "ends in a question mark" : `over ${SECTION_NAME_LIMIT} characters`,
+    })),
+);
+
+if (probableQuestions.length > 0) {
+  console.log(
+    `\n  WARNING: ${probableQuestions.length} section${probableQuestions.length === 1 ? "" : "s"} read like questions.`,
+  );
+  console.log("  Imported as sections, exactly as their fill says, so they are NOT asked.");
+  console.log("  If they are questions, fix the fill in the workbook and import again.\n");
+  console.log("    sheet                     cell    reason                    text");
+  console.log("    " + "-".repeat(94));
+  for (const s of probableQuestions) {
+    const head = s.section.length > 46 ? `${s.section.slice(0, 46)}…` : s.section;
+    console.log(
+      `    ${s.sheet.padEnd(24)}  ${`${s.column}${s.row}`.padEnd(6)}  ${s.why.padEnd(24)}  ${head}`,
+    );
+  }
+}
 
 /*
   A miscalibration shows up here as a sheet with almost no questions, or almost
