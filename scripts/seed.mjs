@@ -110,21 +110,41 @@ await upsert(
 /* -------------------------------------------------------------------------- */
 
 console.log("Organisations");
+
+// The taxonomy is reference data created by the migration. The seed looks it
+// up rather than restating it, so adding a sub-segment stays a one-place change.
+const { data: taxTypes, error: taxTypeError } = await db
+  .from("client_types")
+  .select("id, slug");
+fail("read client types", taxTypeError);
+const { data: taxSegments, error: taxSegError } = await db
+  .from("client_sub_segments")
+  .select("id, slug, client_type_id");
+fail("read sub-segments", taxSegError);
+
+const typeBySlug = Object.fromEntries(taxTypes.map((t) => [t.slug, t.id]));
+const segmentBySlug = Object.fromEntries(
+  taxSegments.map((s) => [`${s.client_type_id}:${s.slug}`, s.id]),
+);
+const segment = (typeSlug, segSlug) =>
+  segmentBySlug[`${typeBySlug[typeSlug]}:${segSlug}`];
+
 const orgs = await upsert(
   "organisations",
   [
     {
       name: "BeyondTrust",
       slug: "beyondtrust",
-      vertical: "b2b_tech",
-      sub_vertical: "identity_access",
+      client_type_id: typeBySlug.b2b_tech,
+      sub_segment_id: segment("b2b_tech", "security"),
+      category: "Privileged Access Management",
       status: "active",
     },
     {
       name: "Revenue Tech Media",
       slug: "revenue-tech-media",
-      vertical: "conference_organizers",
-      sub_vertical: "b2b_media",
+      client_type_id: typeBySlug.conference_organizers,
+      sub_segment_id: segment("conference_organizers", "b2b_media"),
       status: "active",
     },
   ],
@@ -156,8 +176,8 @@ if (!template) {
     .insert({
       name: "B2B Tech event",
       program_type: "event",
-      vertical: "b2b_tech",
-      sub_vertical: null,
+      client_type_id: typeBySlug.b2b_tech,
+      sub_segment_id: null,
       version: 1,
       active: true,
     })
@@ -248,18 +268,32 @@ const FIELDS = [
   },
 ];
 
-// Clear and rewrite the field set, so re-running does not accumulate copies.
-fail(
-  "clear template fields",
-  (await db.from("onboarding_template_fields").delete().eq("template_id", template.id))
-    .error,
-);
-const { data: fields, error: fieldsError } = await db
+/*
+  Template fields are never deleted. onboarding_responses reference them under
+  ON DELETE RESTRICT, so once a programme has generated onboarding the delete
+  is refused and the seed stops being re-runnable — which is exactly what
+  happened. A template version is immutable once anything points at it;
+  changing the questions means a new version, which is what the workbook
+  importer does. Here the seed simply leaves an existing set alone.
+*/
+const { data: existingFields, error: existingError } = await db
   .from("onboarding_template_fields")
-  .insert(FIELDS.map((f) => ({ ...f, template_id: template.id })))
-  .select();
-fail("insert template fields", fieldsError);
-console.log(`  ${fields.length} fields`);
+  .select("id, question, default_owner, default_assignee_role, default_offset_value, blocking")
+  .eq("template_id", template.id);
+fail("read template fields", existingError);
+
+let fields = existingFields;
+if (!fields || fields.length === 0) {
+  const { data, error } = await db
+    .from("onboarding_template_fields")
+    .insert(FIELDS.map((f) => ({ ...f, template_id: template.id })))
+    .select();
+  fail("insert template fields", error);
+  fields = data;
+  console.log(`  ${fields.length} fields created`);
+} else {
+  console.log(`  ${fields.length} fields already present, left as they are`);
+}
 
 /* -------------------------------------------------------------------------- */
 /* 4. Programmes                                                              */

@@ -36,8 +36,9 @@ export default async function ProgramsLayout({
         name: p.name,
         owner: p.owner,
         typeLabel: p.typeLabel,
-        vertical: p.vertical,
-        subVertical: p.subVertical,
+        clientTypeLabel: p.clientTypeLabel,
+        subSegmentLabel: p.subSegmentLabel,
+        category: p.category,
       }))}
     >
       {children}

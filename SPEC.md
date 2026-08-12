@@ -25,7 +25,7 @@ That session is built in our own tables. It is not Supabase Auth and it creates 
 Build in this order. Finish and verify each before starting the next.
 
 1. **Clients and Programs.** The spine. Organisations, programmes, users, assignments. Includes the creation sequence in section 4, which module 2 depends on.
-2. **Onboarding.** Templated question sets per programme type and vertical. Every field has an owner, due date, status and blocking flag. Completed onboarding generates the task set. Includes the client-completed onboarding form on `client.amzai.events`: Amzai generates a link per programme and emails it to named client contacts, who answer their own fields directly. Answers save as they go and need not be finished in one sitting.
+2. **Onboarding.** Templated question sets per programme type and client type. Every field has an owner, due date, status and blocking flag. Completed onboarding generates the task set. Includes the client-completed onboarding form on `client.amzai.events`: Amzai generates a link per programme and emails it to named client contacts, who answer their own fields directly. Answers save as they go and need not be finished in one sitting.
 3. **Delivery Operations.** Task engine from templates, portfolio calendar, attendee tracking, risk flags with numeric triggers.
 4. **Client Dashboards.** Generated per programme, token URL, no login.
 5. **Audience and Data Ops.** Master contact database, engagement history, consent, suppression.
@@ -40,39 +40,37 @@ An intelligence layer using the Claude API comes last, after modules 1 to 6 hold
 Build only these tables first.
 
 ### organisations
-`id` uuid pk · `name` text · `trading_name` text · `slug` text unique not null · `slug_locked_at` timestamptz nullable · `vertical` text (b2b_tech, law_firms, conference_organizers) · `sub_vertical` text nullable · `status` text (prospect, active, dormant, closed) · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `name` text · `trading_name` text · `slug` text unique not null · `slug_locked_at` timestamptz nullable · `client_type_id` uuid fk client_types not null · `sub_segment_id` uuid fk nullable · `category` text nullable · `status` text (prospect, active, dormant, closed) · `created_at`, `updated_at` timestamptz
 
-**Vertical and sub-vertical** replace the flat `industry` list. Two levels, because the old list mixed one dimension with another: `law_firm` and `b2b_tech` were markets, while `association`, `amc`, `trade_show` and `b2b_media` were all kinds of conference organiser. The rendering rules are in DESIGN.md section 6.1; the values are:
+**The client taxonomy has three levels, and only the first two are lists.**
 
-**Both columns store slugs. Labels are never stored.** `lib/verticals.ts` is the single source for display text, so renaming a sub-vertical is a one-line change there rather than an UPDATE across every organisation row, and both columns follow one convention.
-
-| Vertical | Sub-vertical slugs | Displayed as |
+| Level | Where it lives | Constrained |
 |---|---|---|
-| `b2b_tech` | `cybersecurity` | Cybersecurity |
-| | `identity_access` | Identity & Access |
-| | `cloud_infrastructure` | Cloud & Infrastructure |
-| | `data_analytics` | Data & Analytics |
-| | `ai_ml` | AI & ML |
-| | `devops_engineering` | DevOps & Engineering |
-| | `networking` | Networking |
-| | `observability` | Observability |
-| | `storage_backup` | Storage & Backup |
-| | `fintech` | FinTech |
-| | `martech` | MarTech |
-| | `hr_tech` | HR Tech |
-| | `supply_chain_tech` | Supply Chain Tech |
-| | `healthcare_tech` | Healthcare Tech |
-| | `erp_business_applications` | ERP & Business Applications |
-| | `customer_experience` | Customer Experience |
-| `conference_organizers` | `associations` | Associations |
-| | `amcs` | AMCs |
-| | `b2b_media` | B2B Media |
-| | `trade_show_organizers` | Trade Show Organizers |
-| `law_firms` | none | em dash |
+| Client type | `client_types` | to the rows in that table |
+| Sub-segment | `client_sub_segments` | to the rows for that client type |
+| Category | `organisations.category` | not at all |
 
-`sub_vertical` is null for every Law Firms organisation, and a check constraint enforces both halves of that: null when the vertical is `law_firms`, and otherwise one of the slugs listed for that vertical. A sub-vertical belonging to the wrong vertical is not a display bug, it is a mis-filed client, so the database refuses it rather than the interface hiding it.
+Both tables are admin editable. Adding a sub-segment is a row, not a deploy, which is why this replaced the previous `vertical` and `sub_vertical` columns: those lived in a check constraint and a TypeScript file, and neither could be changed without shipping code.
+
+`category` is free text and will stay that way. Privileged Access Management sits under Security today; there will be three more like it next quarter, and a migration per category is not a workable way to run a taxonomy.
+
+**Starting values**, which an admin may extend:
+
+- **Law Firms** — not subdivided.
+- **B2B Tech** — Artificial Intelligence, Security, Analytics, Data Privacy, Development and DevOps, Collaboration and Productivity, Content Management, Customer Service, Sales Tools, Marketing, Commerce, ERP, Governance Risk and Compliance, Digital Advertising, AR and VR, CAD and PLM, Design, IT Infrastructure, IT Management, HR, Vertical Industry Software, Supply Chain and Logistics, Hosting, B2B Marketplaces, Other.
+- **Conference Organizers** — B2B Media, Association, AMC, Trade Show Organizer, Hosted Buyer Organizer, Community Event Organizer.
+
+Belonging is enforced by a composite foreign key on `(sub_segment_id, client_type_id)` rather than a trigger, so a sub-segment from the wrong client type is impossible rather than discouraged. That also enforces the Law Firms rule for free: no sub-segment row carries the Law Firms type, so any value at all is refused.
 
 `slug` is lowercase and hyphenated, generated from `name` on creation and editable afterwards. It appears in every client-facing URL. Once the first client-facing link for any programme of this organisation has been generated, `slug_locked_at` is stamped and the slug can no longer be changed, because links already sent would break. Slugs are readability only and are never an access control.
+
+### client_types
+`id` uuid pk · `slug` text unique · `label` text · `sort_order` integer · `active` boolean · `created_at`, `updated_at` timestamptz
+
+### client_sub_segments
+`id` uuid pk · `client_type_id` uuid fk · `slug` text · `label` text · `sort_order` integer · `active` boolean · `created_at`, `updated_at` timestamptz
+
+Unique on (`client_type_id`, `slug`). Staff read both tables; only an admin writes them, because they are reference data the whole product depends on and a wrong edit is expensive.
 
 ### users
 `id` uuid pk, matches Supabase auth user id · `full_name` text · `email` text · `role` text (engagement_lead, delivery_lead, specialist, data_ops, admin) · `active` boolean · `created_at`, `updated_at` timestamptz
@@ -110,17 +108,17 @@ Unique on (`program_id`, `role_on_program`). One answer per role per programme.
 `resolved_by` and `resolved_at` name who decided and when. Every write here also writes an audit row.
 
 ### onboarding_templates
-`id` uuid pk · `name` text · `program_type` text · `vertical` text nullable · `sub_vertical` text nullable · `version` integer · `active` boolean · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `name` text · `program_type` text · `client_type_id` uuid fk nullable · `sub_segment_id` uuid fk nullable · `version` integer · `active` boolean · `created_at`, `updated_at` timestamptz
 
-Both `vertical` and `sub_vertical` are nullable, and null means "applies to anything at this level".
+Both `client_type_id` and `sub_segment_id` are nullable, and null means "applies to anything at this level".
 
-- `vertical` null: applies to every vertical. The generic template for a programme type.
-- `vertical` set, `sub_vertical` null: applies to that whole vertical. **One B2B Tech template covers all sixteen sub-verticals**, which is the normal case.
+- `client_type_id` null: applies to every client type. The generic template for a programme type.
+- `client_type_id` set, `sub_segment_id` null: applies to that whole client type. **One B2B Tech template covers all twenty-five sub-segments**, which is the normal case: the sub-segment is for targeting, not for asking different questions.
 - Both set: applies to that sub-vertical only. Added sparingly, where the questions genuinely differ, and it takes precedence over the vertical-level template.
 
-`sub_vertical` set with `vertical` null is meaningless and is rejected by a check constraint: a sub-vertical only has meaning inside its vertical.
+`sub_segment_id` set with `client_type_id` null is meaningless and is rejected by a check constraint: a sub-segment only has meaning inside its client type.
 
-The point of the hierarchy is that adding the sixteenth B2B Tech sub-vertical should not mean writing a sixteenth template. Write one, and specialise only where a real difference in the questions justifies a second.
+The point of the hierarchy is that adding the twenty-sixth B2B Tech sub-segment should not mean writing a twenty-sixth template. Write one, and specialise only where a real difference in the questions justifies a second.
 
 ### onboarding_template_fields
 `id` uuid pk · `template_id` uuid fk · `section` text · `sort_order` integer · `question` text · `guidance` text · `default_owner` text (client, amzai, both) · `default_assignee_role` text nullable (engagement_lead, delivery_lead, specialist, data_ops) · `default_offset_type` text (weeks_from_start, days_before_milestone) · `default_offset_value` integer · `blocking` boolean · `created_at`, `updated_at` timestamptz
@@ -204,24 +202,24 @@ Not every audit row comes from a table write. Reads of a client-facing surface a
 
 The order matters, and it is not a suggestion. Done out of order, a programme generates with every onboarding field unassigned, and the awaiting-me count that drives the whole platform reads zero for everyone from day one.
 
-1. **Create the organisation**, including its vertical and, where the vertical has them, its sub-vertical.
+1. **Create the organisation**, including its client type, its sub-segment where the client type has them, and optionally the category.
 2. **Create the programme**, including its type and dates.
 3. **Assign the Amzai team** in `program_assignments`, each with a `role_on_program`.
 4. **Generate onboarding.**
 
 ### 4.1 Selecting the template
 
-The organisation's vertical and sub-vertical, together with the programme's type, select the template. No one types a template name.
+The organisation's client type and sub-segment, together with the programme's type, select the template. No one types a template name.
 
 `program_type` must always match. Within that, the most specific match wins, in this order:
 
-1. **Exact sub-vertical.** `vertical` and `sub_vertical` both match the organisation.
-2. **Vertical.** `vertical` matches and `sub_vertical` is null.
+1. **Exact sub-segment.** `client_type_id` and `sub_segment_id` both match the organisation.
+2. **Client type.** `client_type_id` matches and `sub_segment_id` is null.
 3. **Generic.** Both are null.
 
 Only `active` templates are candidates. Where more than one still matches at the same level, the highest `version` wins. Selection stops at the first level that yields a candidate: a sub-vertical template beats a vertical one even if the vertical one has a higher version number, because specificity is the stronger signal.
 
-An organisation whose vertical is `law_firms` has no sub-vertical, so level 1 never applies to it and selection starts at level 2.
+An organisation whose client type is Law Firms has no sub-segment, so level 1 never applies to it and selection starts at level 2.
 
 The admin sees which template was selected before generating, and may override it with any other active template. Once generated, the choice is recorded on `programs.onboarding_template_id` and does not change.
 

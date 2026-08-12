@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { SignOutButton } from "@/components/shell/SignOutButton";
 import type { AwaitingSummary } from "@/lib/data/programmes";
-import { subVerticalLabel, verticalLabel, type VerticalId } from "@/lib/verticals";
 
 /** The minimum a programme needs to be findable from the top bar. */
 export type SearchEntry = {
@@ -14,23 +13,25 @@ export type SearchEntry = {
   name: string;
   owner: string;
   typeLabel: string;
-  vertical: VerticalId;
-  subVertical: string | null;
+  clientTypeLabel: string;
+  subSegmentLabel: string | null;
+  category: string | null;
 };
 
 /**
  * Matches the things an operator half-remembers: the name, who owns it, what
- * kind of work it is, and the market it sits in. Searching "cybersecurity" and
- * getting nothing because the word only lives in a column the search ignores
- * is worse than no search.
+ * kind of work it is, and the market it sits in, down to the free-text
+ * category. Searching "privileged access" and getting nothing because the
+ * words only live in a column the search ignores is worse than no search.
  */
 function matches(entry: SearchEntry, term: string): boolean {
   return [
     entry.name,
     entry.owner,
     entry.typeLabel,
-    verticalLabel(entry.vertical),
-    subVerticalLabel(entry.subVertical) ?? "",
+    entry.clientTypeLabel,
+    entry.subSegmentLabel ?? "",
+    entry.category ?? "",
   ]
     .join(" ")
     .toLowerCase()

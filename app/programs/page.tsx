@@ -1,6 +1,7 @@
 import { AccessState } from "@/components/AccessState";
 import { PROGRAMME_TYPE_LABEL, listProgrammes } from "@/lib/data/programmes";
 import { getSession } from "@/lib/data/session";
+import { listClientTypes } from "@/lib/data/taxonomy";
 
 import { ProgramsContent } from "./ProgramsContent";
 
@@ -31,7 +32,10 @@ export default async function ProgramsPage() {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const programmes = await listProgrammes(today);
+  const [programmes, clientTypes] = await Promise.all([
+    listProgrammes(today),
+    listClientTypes(),
+  ]);
 
   // Filter options come from what is actually there, so a filter can never
   // offer a value that matches nothing.
@@ -47,6 +51,7 @@ export default async function ProgramsPage() {
       programmes={programmes}
       owners={owners}
       types={types}
+      clientTypes={clientTypes}
     />
   );
 }

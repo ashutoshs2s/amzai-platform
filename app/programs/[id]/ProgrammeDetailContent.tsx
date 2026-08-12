@@ -12,11 +12,7 @@ import { StatusPill } from "@/components/StatusPill";
 import { Select } from "@/components/form/Field";
 import { InlineEdit } from "@/components/form/InlineEdit";
 import { formatDayMonth } from "@/lib/time";
-import {
-  NO_SUB_VERTICAL,
-  subVerticalLabel,
-  verticalLabel,
-} from "@/lib/verticals";
+import { NO_SUB_SEGMENT } from "@/lib/taxonomy";
 import {
   saveResponseAssignee,
   saveResponseText,
@@ -225,9 +221,10 @@ export function ProgrammeDetailContent({
       <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h1 className="text-page-title font-semibold">{programme.name}</h1>
         <span className="text-body text-slate">
-          {verticalLabel(programme.vertical)}
+          {programme.clientTypeLabel}
           {" · "}
-          {subVerticalLabel(programme.subVertical) ?? NO_SUB_VERTICAL}
+          {programme.subSegmentLabel ?? NO_SUB_SEGMENT}
+          {programme.category ? ` · ${programme.category}` : ""}
           {" · "}
           {programme.typeLabel}
         </span>

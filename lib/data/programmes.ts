@@ -2,7 +2,6 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { daysBetween } from "@/lib/time";
-import type { VerticalId } from "@/lib/verticals";
 
 /**
  * Programme reads.
@@ -38,8 +37,11 @@ export type ProgrammeTime =
 export type ProgrammeRow = {
   id: string;
   name: string;
-  vertical: VerticalId;
-  subVertical: string | null;
+  clientTypeId: string;
+  clientTypeLabel: string;
+  subSegmentId: string | null;
+  subSegmentLabel: string | null;
+  category: string | null;
   type: string;
   typeLabel: string;
   owner: string;
@@ -143,7 +145,11 @@ export async function listProgrammes(today: string): Promise<ProgrammeRow[]> {
     .from("programs")
     .select(
       `id, name, type, status, start_date, end_date, fixed_milestone_date, gate_date,
-       organisation:organisations ( vertical, sub_vertical ),
+       organisation:organisations (
+         category,
+         client_type:client_types ( id, label ),
+         sub_segment:client_sub_segments ( id, label )
+       ),
        delivery_lead:users!programs_delivery_lead_id_fkey ( full_name )`,
     )
     .order("name");
@@ -170,6 +176,13 @@ export async function listProgrammes(today: string): Promise<ProgrammeRow[]> {
       ? programme.delivery_lead[0]
       : programme.delivery_lead;
 
+    const clientType = Array.isArray(organisation?.client_type)
+      ? organisation.client_type[0]
+      : organisation?.client_type;
+    const subSegment = Array.isArray(organisation?.sub_segment)
+      ? organisation.sub_segment[0]
+      : organisation?.sub_segment;
+
     const time = timeFor(programme);
     const counts = rollups.get(programme.id) ?? {
       blocking: 0,
@@ -181,8 +194,11 @@ export async function listProgrammes(today: string): Promise<ProgrammeRow[]> {
     return {
       id: programme.id,
       name: programme.name,
-      vertical: (organisation?.vertical ?? "b2b_tech") as VerticalId,
-      subVertical: organisation?.sub_vertical ?? null,
+      clientTypeId: clientType?.id ?? "",
+      clientTypeLabel: clientType?.label ?? "Unclassified",
+      subSegmentId: subSegment?.id ?? null,
+      subSegmentLabel: subSegment?.label ?? null,
+      category: organisation?.category ?? null,
       type: programme.type,
       typeLabel: PROGRAMME_TYPE_LABEL[programme.type] ?? programme.type,
       owner: lead?.full_name ?? "Unassigned",
@@ -216,8 +232,9 @@ export type OnboardingField = {
 export type ProgrammeDetail = {
   id: string;
   name: string;
-  vertical: VerticalId;
-  subVertical: string | null;
+  clientTypeLabel: string;
+  subSegmentLabel: string | null;
+  category: string | null;
   typeLabel: string;
   status: string;
   time: ProgrammeTime | null;
@@ -238,7 +255,11 @@ export async function getProgramme(id: string): Promise<ProgrammeDetail | null> 
     .select(
       `id, name, type, status, start_date, end_date, fixed_milestone_date, gate_date,
        approver_name, approver_email, onboarding_template_id,
-       organisation:organisations ( vertical, sub_vertical ),
+       organisation:organisations (
+         category,
+         client_type:client_types ( label ),
+         sub_segment:client_sub_segments ( label )
+       ),
        template:onboarding_templates ( name, version )`,
     )
     .eq("id", id)
@@ -331,8 +352,9 @@ export async function getProgramme(id: string): Promise<ProgrammeDetail | null> 
   return {
     id: programme.id,
     name: programme.name,
-    vertical: (organisation?.vertical ?? "b2b_tech") as VerticalId,
-    subVertical: organisation?.sub_vertical ?? null,
+    clientTypeLabel: first(organisation?.client_type)?.label ?? "Unclassified",
+    subSegmentLabel: first(organisation?.sub_segment)?.label ?? null,
+    category: organisation?.category ?? null,
     typeLabel: PROGRAMME_TYPE_LABEL[programme.type] ?? programme.type,
     status: programme.status,
     time: timeFor(programme),

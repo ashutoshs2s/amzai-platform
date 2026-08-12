@@ -276,15 +276,17 @@ Everything else assembles from these.
 
 The default landing screen. A table of every programme.
 
-Columns: Program, Vertical, Sub-vertical, Type, Countdown, Owner, Blocking, Status. Countdown and Blocking are mono and right-aligned. Blocking shows a count, rendered in `--critical` when above zero and `--slate` when zero. Not `--mute`: a zero is a real reading, not a placeholder, and the reader has to be able to tell it apart from a one.
+Columns: Program, Client type, Sub-segment, Type, Countdown, Owner, Blocking, Status. Countdown and Blocking are mono and right-aligned. Blocking shows a count, rendered in `--critical` when above zero and `--slate` when zero. Not `--mute`: a zero is a real reading, not a placeholder, and the reader has to be able to tell it apart from a one.
 
 Status is the programme's own status: onboarding, active, paused, complete. There is no separate phase. One concept, one column.
 
 Owner is the delivery lead. The engagement lead appears on the programme detail screen, not here.
 
-#### Vertical and sub-vertical
+#### Client type and sub-segment
 
 The client organisation is classified rather than named. Which market a programme sits in is what an operator scans for; which company it is for is one click away on the record.
+
+The taxonomy is data, not code: both levels are rows an admin can edit, so nothing on this screen may hard-code a label or an order. There is a third level, the free-text category, and it is deliberately **not** a column: it is long, it varies, and it belongs on the record. It appears in the Sub-segment cell's hover text and in global search, so it is findable without costing a column.
 
 Three verticals. Two have sub-verticals, one does not.
 

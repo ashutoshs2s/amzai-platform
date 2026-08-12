@@ -7,14 +7,7 @@ import { Countdown } from "@/components/Countdown";
 import { type Column, DataTable } from "@/components/DataTable";
 import { StatusPill } from "@/components/StatusPill";
 import { Select, TextInput } from "@/components/form/Field";
-import {
-  NO_SUB_VERTICAL,
-  type VerticalId,
-  VERTICALS,
-  subVerticalLabel,
-  subVerticalOptions,
-  verticalLabel,
-} from "@/lib/verticals";
+import { NO_SUB_SEGMENT, type ClientType } from "@/lib/taxonomy";
 
 import type { ProgrammeRow } from "@/lib/data/programmes";
 
@@ -48,17 +41,19 @@ export function ProgramsContent({
   programmes,
   owners,
   types,
+  clientTypes,
 }: {
   nowIso: string;
   programmes: ProgrammeRow[];
   owners: string[];
   types: { value: string; label: string }[];
+  clientTypes: ClientType[];
 }) {
   const now = new Date(nowIso);
   const router = useRouter();
 
-  const [vertical, setVertical] = useState<VerticalId | "all">("all");
-  const [subVertical, setSubVertical] = useState<string | "all">("all");
+  const [clientType, setClientType] = useState<string>("all");
+  const [subSegment, setSubSegment] = useState<string>("all");
   const [type, setType] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
   const [owner, setOwner] = useState<string>("all");
@@ -66,19 +61,28 @@ export function ProgramsContent({
   const [countFilter, setCountFilter] = useState<CountFilter>(null);
   const [opened, setOpened] = useState<string | null>(null);
 
-  const lawFirmsSelected = vertical === "law_firms";
-  const availableSubVerticals = subVerticalOptions(vertical);
+  const selectedType = clientTypes.find((t) => t.id === clientType);
+  // A client type with no sub-segments, as Law Firms has none. The control
+  // stays and is disabled rather than vanishing.
+  const typeHasNoSegments =
+    selectedType !== undefined && selectedType.subSegments.length === 0;
+  const availableSubSegments = selectedType
+    ? selectedType.subSegments
+    : clientTypes.flatMap((t) => t.subSegments);
 
   /**
    * Changing the vertical narrows the sub-vertical list, so a sub-vertical
    * that no longer belongs is cleared rather than left behind as a filter that
    * silently matches nothing.
    */
-  function changeVertical(next: VerticalId | "all") {
-    setVertical(next);
-    const stillValid = subVerticalOptions(next).some((entry) => entry.slug === subVertical);
-    if (subVertical !== "all" && !stillValid) {
-      setSubVertical("all");
+  function changeClientType(next: string) {
+    setClientType(next);
+    const allowed =
+      next === "all"
+        ? clientTypes.flatMap((t) => t.subSegments)
+        : (clientTypes.find((t) => t.id === next)?.subSegments ?? []);
+    if (subSegment !== "all" && !allowed.some((s) => s.id === subSegment)) {
+      setSubSegment("all");
     }
   }
 
@@ -96,8 +100,8 @@ export function ProgramsContent({
 
   const rows = useMemo(() => {
     return programmes.filter((programme) => {
-      if (vertical !== "all" && programme.vertical !== vertical) return false;
-      if (subVertical !== "all" && programme.subVertical !== subVertical) return false;
+      if (clientType !== "all" && programme.clientTypeId !== clientType) return false;
+      if (subSegment !== "all" && programme.subSegmentId !== subSegment) return false;
       if (type !== "all" && programme.type !== type) return false;
       if (status !== "all" && programme.status !== status) return false;
       if (owner !== "all" && programme.owner !== owner) return false;
@@ -113,11 +117,11 @@ export function ProgramsContent({
       }
       return true;
     });
-  }, [programmes, vertical, subVertical, type, status, owner, nameFilter, countFilter]);
+  }, [programmes, clientType, subSegment, type, status, owner, nameFilter, countFilter]);
 
   const activeFilterCount =
-    (vertical !== "all" ? 1 : 0) +
-    (subVertical !== "all" ? 1 : 0) +
+    (clientType !== "all" ? 1 : 0) +
+    (subSegment !== "all" ? 1 : 0) +
     (type !== "all" ? 1 : 0) +
     (status !== "all" ? 1 : 0) +
     (owner !== "all" ? 1 : 0) +
@@ -125,8 +129,8 @@ export function ProgramsContent({
     (countFilter ? 1 : 0);
 
   function clearFilters() {
-    setVertical("all");
-    setSubVertical("all");
+    setClientType("all");
+    setSubSegment("all");
     setType("all");
     setStatus("all");
     setOwner("all");
@@ -150,35 +154,44 @@ export function ProgramsContent({
       sortValue: (row) => row.name,
     },
     {
-      key: "vertical",
-      header: "Vertical",
+      key: "clientType",
+      header: "Client type",
       width: "160px",
       truncate: true,
       cell: (row) => (
-        <span className="text-slate" title={verticalLabel(row.vertical)}>
-          {verticalLabel(row.vertical)}
+        <span className="text-slate" title={row.clientTypeLabel}>
+          {row.clientTypeLabel}
         </span>
       ),
-      sortValue: (row) => verticalLabel(row.vertical),
+      sortValue: (row) => row.clientTypeLabel,
     },
     {
-      key: "subVertical",
-      header: "Sub-vertical",
+      key: "subSegment",
+      header: "Sub-segment",
       width: "165px",
       truncate: true,
       cell: (row) =>
-        row.subVertical ? (
-          // Slug is stored; the label comes from lib/verticals.ts.
-          <span className="text-slate">{subVerticalLabel(row.subVertical)}</span>
+        row.subSegmentLabel ? (
+          // The category sits beneath this and is shown on the record, not
+          // here: it is free text and would not fit a column.
+          <span
+            className="text-slate"
+            title={
+              row.category
+                ? `${row.subSegmentLabel} · ${row.category}`
+                : row.subSegmentLabel
+            }
+          >
+            {row.subSegmentLabel}
+          </span>
         ) : (
           // A dash, not a blank. Blank reads as missing; a dash reads as
           // deliberately not applicable.
-          <span className="text-slate" title="Law Firms are not subdivided">
-            {NO_SUB_VERTICAL}
+          <span className="text-slate" title="This client type is not subdivided">
+            {NO_SUB_SEGMENT}
           </span>
         ),
-      // Sorted by what the reader sees, not by the stored slug.
-      sortValue: (row) => subVerticalLabel(row.subVertical) ?? "",
+      sortValue: (row) => row.subSegmentLabel ?? "",
     },
     {
       key: "type",
@@ -265,13 +278,13 @@ export function ProgramsContent({
     <div className="inline-flex flex-wrap items-center divide-x divide-line overflow-hidden rounded-base border border-line bg-canvas">
       <Select
         bare
-        className="w-[120px]"
-        aria-label="Vertical"
-        value={vertical}
-        onChange={(event) => changeVertical(event.target.value as VerticalId | "all")}
+        className="w-[132px]"
+        aria-label="Client type"
+        value={clientType}
+        onChange={(event) => changeClientType(event.target.value)}
       >
-        <option value="all">All verticals</option>
-        {VERTICALS.map((entry) => (
+        <option value="all">All client types</option>
+        {clientTypes.map((entry) => (
           <option key={entry.id} value={entry.id}>
             {entry.label}
           </option>
@@ -284,22 +297,24 @@ export function ProgramsContent({
       */}
       <Select
         bare
-        className="w-[136px]"
-        aria-label="Sub-vertical"
-        value={lawFirmsSelected ? NO_SUB_VERTICAL : subVertical}
-        disabled={lawFirmsSelected}
+        className="w-[150px]"
+        aria-label="Sub-segment"
+        value={typeHasNoSegments ? NO_SUB_SEGMENT : subSegment}
+        disabled={typeHasNoSegments}
         title={
-          lawFirmsSelected ? "Law Firms are not subdivided" : undefined
+          typeHasNoSegments
+            ? `${selectedType?.label} is not subdivided`
+            : undefined
         }
-        onChange={(event) => setSubVertical(event.target.value)}
+        onChange={(event) => setSubSegment(event.target.value)}
       >
-        {lawFirmsSelected ? (
-          <option value={NO_SUB_VERTICAL}>{NO_SUB_VERTICAL}</option>
+        {typeHasNoSegments ? (
+          <option value={NO_SUB_SEGMENT}>{NO_SUB_SEGMENT}</option>
         ) : (
           <>
-            <option value="all">All sub-verticals</option>
-            {availableSubVerticals.map((entry) => (
-              <option key={entry.slug} value={entry.slug}>
+            <option value="all">All sub-segments</option>
+            {availableSubSegments.map((entry) => (
+              <option key={entry.id} value={entry.id}>
                 {entry.label}
               </option>
             ))}
