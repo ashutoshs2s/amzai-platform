@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 
 import { AccessState } from "@/components/AccessState";
+import { listClientContacts } from "@/lib/data/contacts";
 import { getProgramme } from "@/lib/data/programmes";
+import { canGenerateForProgramme } from "@/lib/data/generation";
 import { getSession } from "@/lib/data/session";
 
 import { ProgrammeDetailContent } from "./ProgrammeDetailContent";
@@ -33,7 +35,17 @@ export default async function ProgrammeDetailPage({
   const detail = await getProgramme(id);
   if (!detail) notFound();
 
+  const contacts = await listClientContacts(id);
+
   return (
-    <ProgrammeDetailContent nowIso={new Date().toISOString()} detail={detail} />
+    <ProgrammeDetailContent
+      nowIso={new Date().toISOString()}
+      detail={detail}
+      contacts={contacts}
+      /* Naming who at the client answers is client administration, so it
+         follows the same gate as generating: admin, or the manager who holds
+         this client. */
+      canEditContacts={await canGenerateForProgramme(id)}
+    />
   );
 }

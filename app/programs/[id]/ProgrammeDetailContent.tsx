@@ -14,6 +14,7 @@ import { InlineEdit } from "@/components/form/InlineEdit";
 import { formatDayMonth } from "@/lib/time";
 import { NO_SUB_SEGMENT } from "@/lib/taxonomy";
 import { StatusSelect } from "@/components/form/StatusSelect";
+import { ContactsTab } from "./ContactsTab";
 import {
   reassignResponses,
   saveResponseAssignee,
@@ -22,9 +23,11 @@ import {
   saveResponseText,
 } from "@/lib/data/onboarding-actions";
 import type { OnboardingField, ProgrammeDetail } from "@/lib/data/programmes";
+import type { ClientContact } from "@/lib/data/contacts";
 
 const TABS = [
   "Onboarding",
+  "Contacts",
   "Tasks",
   "Audience",
   "Attendees",
@@ -101,9 +104,13 @@ function isOpen(field: OnboardingField): boolean {
 export function ProgrammeDetailContent({
   nowIso,
   detail,
+  contacts,
+  canEditContacts,
 }: {
   nowIso: string;
   detail: ProgrammeDetail;
+  contacts: ClientContact[];
+  canEditContacts: boolean;
 }) {
   const now = new Date(nowIso);
   const programme = detail;
@@ -565,7 +572,15 @@ export function ProgrammeDetailContent({
             </div>
           )}
 
-          {tab !== "Onboarding" && (
+          {tab === "Contacts" && (
+            <ContactsTab
+              programmeId={detail.id}
+              contacts={contacts}
+              canEdit={canEditContacts}
+            />
+          )}
+
+          {tab !== "Onboarding" && tab !== "Contacts" && (
             <div className="mt-4 overflow-hidden rounded-base border border-line bg-surface">
               <EmptyState message={emptyMessageFor(tab)} />
             </div>
