@@ -13,8 +13,12 @@ import { Select } from "@/components/form/Field";
 import { InlineEdit } from "@/components/form/InlineEdit";
 import { formatDayMonth } from "@/lib/time";
 import { NO_SUB_SEGMENT } from "@/lib/taxonomy";
+import { StatusSelect } from "@/components/form/StatusSelect";
 import {
+  reassignResponses,
   saveResponseAssignee,
+  saveResponseDueDate,
+  saveResponseStatus,
   saveResponseText,
 } from "@/lib/data/onboarding-actions";
 import type { OnboardingField, ProgrammeDetail } from "@/lib/data/programmes";
@@ -124,6 +128,7 @@ export function ProgrammeDetailContent({
   const [showReassign, setShowReassign] = useState(false);
   const [reassignFrom, setReassignFrom] = useState("");
   const [reassignTo, setReassignTo] = useState("");
+  const [reassignError, setReassignError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "blocking" | "unassigned">("all");
   // A nonce alongside the id, so revealing the same field twice still scrolls.
   const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
@@ -161,7 +166,6 @@ export function ProgrammeDetailContent({
     highlightTimer.current = setTimeout(() => setHighlight(null), 2500);
   }
 
-  const teamNames = detail.team.map((member) => member.name);
   const teamMembers = detail.team.map((m) => ({ id: m.id, name: m.name }));
 
   const blockingOpen = useMemo(
@@ -235,16 +239,80 @@ export function ProgrammeDetailContent({
     router.refresh();
   }
 
-  function applyReassign() {
+  /**
+   * Status, optimistically.
+   *
+   * Everything derived on this screen — the section counts, the answered line,
+   * the blocking bar — is a function of `fields`, so updating that one array is
+   * what makes all three move at once. The list's four portfolio counts are on
+   * another page and are refreshed by the action revalidating it.
+   */
+  async function persistStatus(fieldId: string, status: string) {
+    const before = (fields ?? []).find((f) => f.id === fieldId)?.status;
+    updateField(fieldId, { status });
+    setSaveErrors((e) => ({ ...e, [fieldId]: "" }));
+
+    const result = await saveResponseStatus(fieldId, detail.id, status);
+    if (!result.ok) {
+      updateField(fieldId, { status: before ?? "not_started" });
+      setSaveErrors((e) => ({ ...e, [fieldId]: result.message }));
+      return;
+    }
+    router.refresh();
+  }
+
+  async function persistDueDate(fieldId: string, dueDate: string) {
+    const before = (fields ?? []).find((f) => f.id === fieldId)?.dueDate ?? null;
+    updateField(fieldId, { dueDate: dueDate === "" ? null : dueDate });
+    setSaveErrors((e) => ({ ...e, [fieldId]: "" }));
+
+    const result = await saveResponseDueDate(fieldId, detail.id, dueDate);
+    if (!result.ok) {
+      updateField(fieldId, { dueDate: before });
+      setSaveErrors((e) => ({ ...e, [fieldId]: result.message }));
+      return;
+    }
+    router.refresh();
+  }
+
+  /**
+   * Bulk reassign. SPEC.md 4.6.
+   *
+   * Writes one row per response rather than a single bulk event, because the
+   * audit trigger fires per row. The screen updates its copy after the write
+   * rather than before it: unlike a single field, an operator cannot see at a
+   * glance whether twelve rows moved, so showing them moved before they had
+   * would be a guess presented as a fact.
+   */
+  async function applyReassign() {
+    setReassignError(null);
+    const target = teamMembers.find((m) => m.id === reassignTo) ?? null;
+
+    const result = await reassignResponses(
+      detail.id,
+      reassignFrom,
+      reassignTo === "" ? null : reassignTo,
+    );
+
+    if (!result.ok) {
+      setReassignError(result.message);
+      return;
+    }
+
     setFields((current) =>
       (current ?? []).map((f) =>
-        f.assignee === reassignFrom ? { ...f, assignee: reassignTo } : f,
+        f.assigneeId === reassignFrom
+          ? { ...f, assigneeId: reassignTo === "" ? null : reassignTo, assignee: target?.name ?? null }
+          : f,
       ),
     );
     setShowReassign(false);
+    setReassignFrom("");
+    setReassignTo("");
+    router.refresh();
   }
 
-  const reassignCount = (fields ?? []).filter((f) => f.assignee === reassignFrom).length;
+  const reassignCount = (fields ?? []).filter((f) => f.assigneeId === reassignFrom).length;
 
   return (
     <div>
@@ -356,8 +424,9 @@ export function ProgrammeDetailContent({
                       variant="quiet"
                       onClick={() => {
                         setShowReassign((v) => !v);
-                        setReassignFrom(teamNames[0] ?? "");
-                        setReassignTo(teamNames[1] ?? "");
+                        setReassignFrom("");
+                        setReassignTo("");
+                        setReassignError(null);
                       }}
                     >
                       Bulk reassign
@@ -375,37 +444,61 @@ export function ProgrammeDetailContent({
 
                   {showReassign && (
                     <div className="mt-3 flex flex-wrap items-end gap-4 rounded-base border border-line bg-surface-head px-3 py-2">
-                      <label className="flex flex-col gap-1">
+                      <label className="flex flex-col gap-0.5">
                         <span className="text-label font-medium text-slate">From</span>
                         <Select
                           value={reassignFrom}
                           onChange={(e) => setReassignFrom(e.target.value)}
                         >
-                          {teamNames.map((name) => (
-                            <option key={name} value={name}>
-                              {name}
+                          <option value="">Choose…</option>
+                          {teamMembers.map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {member.name}
                             </option>
                           ))}
                         </Select>
                       </label>
-                      <label className="flex flex-col gap-1">
+                      <label className="flex flex-col gap-0.5">
                         <span className="text-label font-medium text-slate">To</span>
                         <Select
                           value={reassignTo}
                           onChange={(e) => setReassignTo(e.target.value)}
                         >
-                          {teamNames.map((name) => (
-                            <option key={name} value={name}>
-                              {name}
+                          {/* Leaving somebody unassigned is a decision the
+                              platform already respects elsewhere. SPEC.md 4.4. */}
+                          <option value="">Nobody</option>
+                          {teamMembers.map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {member.name}
                             </option>
                           ))}
                         </Select>
                       </label>
-                      <Button variant="primary" onClick={applyReassign}>
+                      <Button
+                        variant="primary"
+                        disabled={reassignFrom === "" || reassignCount === 0}
+                        onClick={applyReassign}
+                      >
                         Reassign {reassignCount}{" "}
                         {reassignCount === 1 ? "response" : "responses"}
                       </Button>
                       <Button onClick={() => setShowReassign(false)}>Cancel</Button>
+                      {reassignFrom === "" ? (
+                        <span className="text-body text-slate">
+                          Choose who to reassign from.
+                        </span>
+                      ) : (
+                        reassignCount === 0 && (
+                          <span className="text-body text-slate">
+                            Nothing is assigned to them on this programme.
+                          </span>
+                        )
+                      )}
+                      {reassignError && (
+                        <span className="text-body text-critical" role="status">
+                          {reassignError}
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -450,6 +543,12 @@ export function ProgrammeDetailContent({
                                 }
                                 onChangeAssignee={(id) =>
                                   persistAssignee(field.id, id)
+                                }
+                                onChangeStatus={(status) =>
+                                  persistStatus(field.id, status)
+                                }
+                                onChangeDueDate={(due) =>
+                                  persistDueDate(field.id, due)
                                 }
                               />
                             ))}
@@ -581,8 +680,7 @@ export function ProgrammeDetailContent({
       </div>
 
       <p className="mt-6 text-caption text-slate">
-        Answers and assignees save as you change them. Status, dates and the
-        bulk reassign are not wired up yet.
+        Answers, statuses, due dates and assignees save as you change them.
       </p>
     </div>
   );
@@ -613,6 +711,8 @@ function FieldRow({
   saveError,
   onSaveResponse,
   onChangeAssignee,
+  onChangeStatus,
+  onChangeDueDate,
 }: {
   field: OnboardingField;
   team: { id: string; name: string }[];
@@ -621,9 +721,15 @@ function FieldRow({
   saveError?: string;
   onSaveResponse: (text: string) => Promise<void>;
   onChangeAssignee: (assigneeId: string | null) => void;
+  onChangeStatus: (status: string) => void;
+  onChangeDueDate: (dueDate: string) => void;
 }) {
   const open = isOpen(field);
   const wording = assigneeWording(field);
+  // Only an open question can be overdue. A date in the past on an approved
+  // one is history, not a problem.
+  const overdue =
+    open && field.dueDate !== null && field.dueDate < new Date().toISOString().slice(0, 10);
   return (
     <div
       id={`field-${field.id}`}
@@ -647,12 +753,11 @@ function FieldRow({
               Blocking
             </span>
           )}
-          <StatusPill status={field.status} />
-          {field.dueDate && (
-            <span className="font-time text-caption text-slate">
-              {formatDayMonth(field.dueDate)}
-            </span>
-          )}
+          <StatusSelect
+            status={field.status}
+            label={field.question}
+            onChange={onChangeStatus}
+          />
         </span>
       </div>
 
@@ -691,6 +796,23 @@ function FieldRow({
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-slate">
         <span>
           Owner <span className="text-ink">{OWNER_LABEL[field.owner]}</span>
+        </span>
+        <span className="flex items-center gap-1">
+          Due
+          {/*
+            A date input rather than free text: the format is the one thing
+            nobody should have to get right, and an empty value is allowed
+            because a question with no date to count from is an honest state.
+          */}
+          <input
+            type="date"
+            value={field.dueDate ?? ""}
+            aria-label={`Due date for: ${field.question}`}
+            onChange={(event) => onChangeDueDate(event.target.value)}
+            className={`h-6 rounded-base border border-transparent bg-transparent px-1 font-time text-caption transition-colors hover:border-line hover:bg-surface focus:border-accent focus:bg-surface ${
+              overdue ? "text-critical" : "text-ink"
+            }`}
+          />
         </span>
         <span className="flex items-center gap-1">
           {wording.label}

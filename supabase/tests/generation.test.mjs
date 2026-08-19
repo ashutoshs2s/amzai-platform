@@ -7,7 +7,7 @@
  * and that a later import cannot reach back into a programme already generated.
  */
 
-import { asUser, freshDatabase, one, rows, suite } from "./harness.mjs";
+import { freshDatabase, one, rows, suite } from "./harness.mjs";
 
 const t = suite("Generation");
 const db = await freshDatabase();

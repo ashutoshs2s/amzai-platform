@@ -7,7 +7,7 @@
  * the order exists to prevent.
  */
 
-import { freshDatabase, one, rows, suite } from "./harness.mjs";
+import { freshDatabase, one, suite } from "./harness.mjs";
 
 const t = suite("New client");
 const db = await freshDatabase();

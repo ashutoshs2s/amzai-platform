@@ -28,6 +28,16 @@ import { createClient } from "@/lib/supabase/server";
 
 export type SaveResult = { ok: true } | { ok: false; message: string };
 
+/** onboarding_responses.status. SPEC.md section 3. */
+const RESPONSE_STATUSES = [
+  "not_started",
+  "in_progress",
+  "submitted",
+  "approved",
+  "blocked",
+  "na",
+];
+
 const DENIED =
   "That did not save. You may no longer have access to this programme.";
 
@@ -99,4 +109,115 @@ export async function saveResponseAssignee(
 
   revalidatePath(`/programs/${programmeId}`);
   return { ok: true };
+}
+
+/**
+ * Status. The counts on both screens derive from this column.
+ *
+ * A programme's section counts, its answered line, its blocking bar and the
+ * four portfolio counts on the list are all functions of status, which is why
+ * this revalidates the list as well as the programme. The screen updates its
+ * own copy optimistically; this is what makes the *other* screen right when the
+ * operator gets back to it.
+ */
+export async function saveResponseStatus(
+  responseId: string,
+  programmeId: string,
+  status: string,
+): Promise<SaveResult> {
+  const session = await getSession();
+  if (session.state !== "ok") return { ok: false, message: "Not signed in." };
+  if (!RESPONSE_STATUSES.includes(status)) {
+    return { ok: false, message: "That is not a status." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("onboarding_responses")
+    .update({ status })
+    .eq("id", responseId)
+    .select("id");
+
+  if (error) return { ok: false, message: error.message };
+  if (!data || data.length === 0) return { ok: false, message: DENIED };
+
+  revalidatePath(`/programs/${programmeId}`);
+  revalidatePath("/programs");
+  return { ok: true };
+}
+
+/**
+ * Due date.
+ *
+ * Clearing it is allowed and means the same as it did at generation: there is
+ * no date to count from. A blank due date is honest, and inventing one puts a
+ * deadline in front of somebody that nothing justifies.
+ */
+export async function saveResponseDueDate(
+  responseId: string,
+  programmeId: string,
+  dueDate: string,
+): Promise<SaveResult> {
+  const session = await getSession();
+  if (session.state !== "ok") return { ok: false, message: "Not signed in." };
+
+  const value = dueDate.trim();
+  if (value !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return { ok: false, message: "A due date needs to look like 2026-09-14." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("onboarding_responses")
+    .update({ due_date: value === "" ? null : value })
+    .eq("id", responseId)
+    .select("id");
+
+  if (error) return { ok: false, message: error.message };
+  if (!data || data.length === 0) return { ok: false, message: DENIED };
+
+  revalidatePath(`/programs/${programmeId}`);
+  revalidatePath("/programs");
+  return { ok: true };
+}
+
+/**
+ * Reassign every response on a programme from one person to another.
+ * SPEC.md section 4.6.
+ *
+ * For the real cases: somebody leaves, somebody covers. Changing a person's
+ * role_on_program deliberately does NOT move existing assignments, because
+ * that would change who owes what without anyone being told; this is the
+ * explicit action that does.
+ *
+ * One statement, and the audit trigger fires per row, so the trail carries one
+ * event per response changed rather than a single vague "bulk reassign". A year
+ * later "who was this assigned to in September" has an answer.
+ */
+export async function reassignResponses(
+  programmeId: string,
+  fromAssigneeId: string,
+  toAssigneeId: string | null,
+): Promise<SaveResult & { moved?: number }> {
+  const session = await getSession();
+  if (session.state !== "ok") return { ok: false, message: "Not signed in." };
+  if (!fromAssigneeId) return { ok: false, message: "Choose who to reassign from." };
+  if (fromAssigneeId === toAssigneeId) {
+    return { ok: false, message: "That is the same person." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("onboarding_responses")
+    .update({ assignee_id: toAssigneeId })
+    .eq("program_id", programmeId)
+    .eq("assignee_id", fromAssigneeId)
+    .select("id");
+
+  if (error) return { ok: false, message: error.message };
+  if (!data) return { ok: false, message: DENIED };
+
+  revalidatePath(`/programs/${programmeId}`);
+  revalidatePath("/programs");
+  return { ok: true, moved: data.length };
 }
