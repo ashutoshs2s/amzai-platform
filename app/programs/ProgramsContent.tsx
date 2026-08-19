@@ -142,13 +142,26 @@ export function ProgramsContent({
     setCountFilter(null);
   }
 
+  /*
+    The width budget, which the columns below must stay inside.
+
+    At a 1440px window: 1440 less the 220px rail less 48px of content padding
+    leaves 1172px, and a vertical scrollbar takes roughly 15px more, so the real
+    budget is about 1155px. These total 1140, which leaves the table a little
+    room to breathe rather than fitting by a hair.
+
+    They totalled 1165 before, which fitted only while the page was short enough
+    to have no scrollbar. The moment one appeared the table overflowed and the
+    programme name — the first thing anybody scans — was the column that went
+    under the left edge. If a column is added here, take the width from another.
+  */
   const columns: Column<ProgrammeRow>[] = [
     {
       key: "name",
       header: "Program",
-      // Capped, so the name cannot absorb the table and push the countdown to
-      // the far edge. The full name stays reachable on hover.
-      width: "200px",
+      // The widest column, because it is the one being scanned. Still capped,
+      // so a long name cannot absorb the table; the full name is on hover.
+      width: "260px",
       truncate: true,
       cell: (row) => (
         <span className="font-medium text-ink" title={row.name}>
@@ -160,7 +173,7 @@ export function ProgramsContent({
     {
       key: "clientType",
       header: "Client type",
-      width: "160px",
+      width: "140px",
       truncate: true,
       cell: (row) => (
         <span className="text-slate" title={row.clientTypeLabel}>
@@ -172,7 +185,7 @@ export function ProgramsContent({
     {
       key: "subSegment",
       header: "Sub-segment",
-      width: "165px",
+      width: "145px",
       truncate: true,
       cell: (row) =>
         row.subSegmentLabel ? (
@@ -200,7 +213,7 @@ export function ProgramsContent({
     {
       key: "type",
       header: "Type",
-      width: "120px",
+      width: "100px",
       truncate: true,
       cell: (row) => (
         <span className="text-slate" title={row.typeLabel}>{row.typeLabel}</span>
@@ -211,7 +224,7 @@ export function ProgramsContent({
       key: "countdown",
       header: "Countdown",
       align: "right",
-      width: "195px",
+      width: "185px",
       cell: (row) =>
         row.time === null ? (
           // A programme with no dates set yet. A dash, not a blank.
@@ -247,7 +260,7 @@ export function ProgramsContent({
       key: "blocking",
       header: "Blocking",
       align: "right",
-      width: "80px",
+      width: "75px",
       // The platform's central concept. Above zero it carries the critical
       // colour at medium weight, so it reads as loudly as it matters; at zero
       // it drops to slate and gets out of the way.
@@ -268,7 +281,7 @@ export function ProgramsContent({
       header: "Status",
       // Sized to its content like every other column. The table ends here
       // rather than stretching, so there is no slack to absorb.
-      width: "125px",
+      width: "110px",
       cell: (row) => <StatusPill status={row.status} />,
       sortValue: (row) => row.status,
     },
