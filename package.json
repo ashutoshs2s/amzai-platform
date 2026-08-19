@@ -19,7 +19,9 @@
     "import-questions": "node --env-file=.env.local scripts/import-questions.mjs",
     "test-generation": "node scripts/test-generation.mjs",
     "test-import": "node scripts/test-import.mjs",
-    "test-slug": "node scripts/test-slug.mjs"
+    "test-slug": "node scripts/test-slug.mjs",
+    "test-db": "node scripts/test-db.mjs",
+    "test": "npm run test-slug && npm run test-generation && npm run test-import && npm run test-db"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -30,6 +32,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.5",
     "@opennextjs/cloudflare": "^1.20.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",

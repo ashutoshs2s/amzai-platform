@@ -39,6 +39,26 @@ The person building this is not a developer. They run the business. They can rea
 8. **Commit after every working step**, with a message describing what changed.
 9. **Do not install a dependency without saying what it is for.** Prefer no dependency.
 
+## Tests
+
+`npm test` runs everything. `npm run test-db` runs just the database suites.
+
+The database suites live in `supabase/tests/*.test.mjs` and run against pglite —
+Postgres compiled to WebAssembly, a devDependency, in-process and disposable.
+They apply every migration twice, then assert policies, triggers and constraints
+with row level security genuinely enforced.
+
+They are not run against the Supabase project, because they write, delete and
+deliberately violate constraints. A read-only test of a write path proves
+nothing.
+
+What they do not cover: PostgREST. A policy is proven; an embed inside a
+`.select()` string is not, and that only shows up in the browser.
+
+`supabase/tests/test_privilege_tiers.sql` is run by hand in the SQL editor
+against the real database, and also by `sql-suite.test.mjs` here, so a policy
+change breaks it on this machine rather than in production.
+
 ## Working conventions
 
 - One module at a time. Finish and verify before starting the next.

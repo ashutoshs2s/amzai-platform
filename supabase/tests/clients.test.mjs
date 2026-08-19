@@ -1,0 +1,177 @@
+/**
+ * Creating a client and its first programme.
+ *
+ * SPEC.md section 4. The creation sequence is an order, not a preference, and
+ * the whole write is one transaction so a failure part-way cannot leave an
+ * organisation and a programme with nobody on them — the exact half-built state
+ * the order exists to prevent.
+ */
+
+import { freshDatabase, one, rows, suite } from "./harness.mjs";
+
+const t = suite("New client");
+const db = await freshDatabase();
+
+const admin = (await one(db, `select id from public.users where tier = 'super_admin'`)).id;
+await db.exec(`set test.actor = '${admin}'`);
+
+const leadOne = (
+  await one(db, `insert into public.users (id, email, full_name, tier)
+                 values (gen_random_uuid(),'one@amzai.test','One','user') returning id`)
+).id;
+const leadTwo = (
+  await one(db, `insert into public.users (id, email, full_name, tier)
+                 values (gen_random_uuid(),'two@amzai.test','Two','user') returning id`)
+).id;
+
+const conf = (await one(db, `select id from public.client_types where slug = 'conference_organizers'`)).id;
+const segment = (await one(db, `select id from public.client_sub_segments where slug = 'b2b_media'`)).id;
+
+await db.exec(`insert into public.onboarding_templates (name, slug, kind, version, client_type_id)
+               values ('First Time Conference','first_time_conference','situational',1,'${conf}')`);
+
+/** One call, with whatever needs varying for the case at hand. */
+function create(over = {}) {
+  const a = {
+    org: "Revenue Tech Media", slug: "revenue-tech-media", type: conf, segment,
+    category: "Events", name: "Summit Series", programmeSlug: "summit-series",
+    programmeType: "retainer", start: "2026-08-17", end: "2026-11-15",
+    milestone: null, gate: "2026-10-19", modules: "'{first_time_conference}'",
+    assignments: [{ user_id: leadOne, role_on_program: "delivery_lead" }],
+    ...over,
+  };
+  const value = (v) => (v === null ? "null" : `'${v}'`);
+  return `select public.create_client_programme(
+    '${a.org}','${a.slug}','${a.type}',${value(a.segment)},${value(a.category)},
+    '${a.name}','${a.programmeSlug}','${a.programmeType}',
+    ${value(a.start)},${value(a.end)},${value(a.milestone)},${value(a.gate)},
+    ${a.modules},'${JSON.stringify(a.assignments)}'::jsonb) as id`;
+}
+
+const counts = async () => ({
+  organisations: (await one(db, `select count(*)::int as n from public.organisations`)).n,
+  programmes: (await one(db, `select count(*)::int as n from public.programs`)).n,
+});
+
+/* -------------------------------------------------------------------------- */
+/* Refused before anything is written                                         */
+/* -------------------------------------------------------------------------- */
+
+await t.refuses("refused with no team", db, null, create({ assignments: [] }),
+  "Assign at least one person");
+t.equal("and nothing at all was written", await counts(), { organisations: 0, programmes: 0 });
+
+await t.refuses("a blank organisation name is refused", db, null, create({ org: " " }), "needs a name");
+await t.refuses("a blank programme name is refused", db, null, create({ name: " " }), "needs a name");
+
+await t.refuses("an unknown person is refused", db, null, create({
+  assignments: [
+    { user_id: leadOne, role_on_program: "delivery_lead" },
+    { user_id: "00000000-0000-0000-0000-000000000000", role_on_program: "specialist" },
+  ],
+}));
+t.equal("and the organisation was rolled back with them",
+  await counts(), { organisations: 0, programmes: 0 });
+
+await t.refuses("an unknown module is refused", db, null, create({ modules: "'{not_a_module}'" }),
+  "no situational module");
+t.equal("and nothing survived that either", await counts(), { organisations: 0, programmes: 0 });
+
+/* -------------------------------------------------------------------------- */
+/* The real thing                                                             */
+/* -------------------------------------------------------------------------- */
+
+const programmeId = (await one(db, create())).id;
+t.check("it returns the programme id", typeof programmeId === "string" && programmeId.length === 36);
+
+const organisation = await one(db, `select name, slug, category, status, client_type_id, sub_segment_id
+                                    from public.organisations`);
+t.check("the organisation is there with its taxonomy",
+  organisation.name === "Revenue Tech Media" &&
+    organisation.client_type_id === conf &&
+    organisation.sub_segment_id === segment &&
+    organisation.category === "Events");
+
+const programme = await one(db, `select name, type, status, gate_date, onboarding_generated_at
+                                 from public.programs`);
+t.check("the programme is there and starts in onboarding",
+  programme.name === "Summit Series" && programme.type === "retainer" &&
+    programme.status === "onboarding");
+t.check("onboarding is NOT generated by creating a client",
+  programme.onboarding_generated_at === null);
+t.check("and no responses were written",
+  (await one(db, `select count(*)::int as n from public.onboarding_responses`)).n === 0);
+
+t.check("the team landed",
+  (await one(db, `select count(*)::int as n from public.program_assignments
+                  where program_id = '${programmeId}'`)).n === 1);
+t.check("the module choice landed",
+  (await one(db, `select module_slug from public.program_situational_modules
+                  where program_id = '${programmeId}'`))?.module_slug === "first_time_conference");
+t.check("the organisation is audited",
+  (await one(db, `select count(*)::int as n from public.audit_events
+                  where table_name = 'organisations'`)).n === 1);
+
+/* -------------------------------------------------------------------------- */
+/* A second programme belongs to the same client                              */
+/* -------------------------------------------------------------------------- */
+
+const second = (
+  await one(db, create({ name: "Winter Summit", programmeSlug: "winter-summit", modules: "'{}'" }))
+).id;
+t.check("a second programme reuses the organisation",
+  (await one(db, `select count(*)::int as n from public.organisations`)).n === 1);
+t.check("and is its own programme", second !== programmeId);
+await t.refuses("the same programme slug twice is refused", db, null,
+  create({ name: "Winter Summit", programmeSlug: "winter-summit", modules: "'{}'" }));
+
+/* -------------------------------------------------------------------------- */
+/* The named leads follow from the team                                       */
+/* -------------------------------------------------------------------------- */
+
+const solo = (
+  await one(db, create({
+    org: "Solo Co", slug: "solo-co", name: "Solo", programmeSlug: "solo", modules: "'{}'",
+    segment: null, category: null,
+    assignments: [
+      { user_id: leadOne, role_on_program: "delivery_lead" },
+      { user_id: leadTwo, role_on_program: "engagement_lead" },
+    ],
+  }))
+).id;
+const leads = await one(db, `select delivery_lead_id, engagement_lead_id
+                             from public.programs where id = '${solo}'`);
+t.check("the delivery lead is set from the team", leads.delivery_lead_id === leadOne);
+t.check("and the engagement lead too", leads.engagement_lead_id === leadTwo);
+
+const tied = (
+  await one(db, create({
+    org: "Tied Co", slug: "tied-co", name: "Tied", programmeSlug: "tied", modules: "'{}'",
+    segment: null, category: null,
+    assignments: [
+      { user_id: leadOne, role_on_program: "delivery_lead" },
+      { user_id: leadTwo, role_on_program: "delivery_lead" },
+    ],
+  }))
+).id;
+t.check("two people in one role leaves it unset rather than guessing",
+  (await one(db, `select delivery_lead_id from public.programs where id = '${tied}'`))
+    .delivery_lead_id === null);
+
+/* -------------------------------------------------------------------------- */
+/* Archive and delete                                                         */
+/* -------------------------------------------------------------------------- */
+
+await t.allows("a programme with no generated onboarding can be deleted", db, null,
+  `delete from public.programs where id = '${second}'`);
+await t.refuses("an organisation with programmes cannot be deleted", db, null,
+  `delete from public.organisations where slug = 'revenue-tech-media'`, "programme");
+
+const empty = (
+  await one(db, `insert into public.organisations (name, slug, client_type_id)
+                 values ('Empty','empty','${conf}') returning id`)
+).id;
+await t.allows("an organisation with none can be", db, null,
+  `delete from public.organisations where id = '${empty}'`);
+
+process.exit(t.report().failed ? 1 : 0);
