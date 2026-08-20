@@ -170,7 +170,7 @@ Every template version a generated set was built from, and the part it played. U
 The modules chosen for a programme, held from creation until generation. By slug rather than by template id, because the choice is "ask the New Market Entry questions" and not "ask version 3 of them"; which version answers that is settled at generation. A slug alone is not unique across versions so a foreign key cannot check it, and a trigger does instead — without it a typo would sit in the table looking like a real choice and quietly contribute nothing.
 
 ### onboarding_responses
-`id` uuid pk · `program_id` uuid fk · `template_field_id` uuid fk · `is_generic` boolean · `response` text · `owner` text (client, amzai, both) · `assignee_id` uuid fk users nullable · `due_date` date · `status` text (not_started, in_progress, submitted, approved, blocked, na) · `blocking` boolean · `answer_source` text (amzai_written, client_written, imported) · `answered_by` uuid fk users nullable · `answered_by_contact_id` uuid fk client_contacts nullable · `answered_at` timestamptz nullable · `tasks_generated` boolean · `created_at`, `updated_at` timestamptz
+`id` uuid pk · `program_id` uuid fk · `template_field_id` uuid fk · `is_generic` boolean · `response` text · `owner` text (client, amzai, both) · `assignee_id` uuid fk users nullable · `due_date` date · `status` text (not_started, in_progress, submitted, approved, blocked, na) · `blocking` boolean · `answer_source` text (amzai_written, client_written, imported) · `answered_by` uuid fk users nullable · `answered_by_contact_id` uuid fk client_contacts nullable · `answered_at` timestamptz nullable · `created_at`, `updated_at` timestamptz
 
 `is_generic` marks a question borrowed from another sub-segment's set because this one has none of its own. It sits on the response rather than the template field, because the question is not generic in its own set, only in the one it was borrowed into.
 
@@ -531,6 +531,8 @@ Total weeks is the number of whole weeks between `start_date` and `end_date`. Cu
 **Suppression.** Opt-outs sync two ways with Instantly and Smartlead. A person who opts out anywhere is suppressed everywhere, permanently. This is compliance, not reporting.
 
 **Stale tasks.** Tasks generate from onboarding answers. When an answer changes after generation, flag the tasks built from it and notify. Do not regenerate silently and do not lock the answer.
+
+Whether a given template has fired for a given answer is recorded in `task_generations`, one row per pair, unique. It replaced a boolean on the response: once a question produced any task the flag was true, and a template authored afterwards could never fire for that answer. Authoring templates as work is understood is the normal way this is used, so the guard has to be per pair. `backfill_task_template()` fires a template against answers approved before it existed, once per pair, ever.
 
 Implemented in module 3 as follows. A task is created when an answer is **approved**, not submitted: submitted is the client's claim, approved is Amzai accepting it, and work follows acceptance. It is created by a database trigger rather than a step somebody runs, because unlike onboarding generation — which freezes hundreds of questions in one act and earns a preview — this is one answer at a time and every outcome is reversible.
 

@@ -438,7 +438,6 @@ const responses = fields.map((field) => {
     answer_source: answer?.response ? "amzai_written" : null,
     answered_by: answer?.response ? staffIds["sana.iqbal@amzai.ai"] : null,
     answered_at: answer?.response ? new Date().toISOString() : null,
-    tasks_generated: false,
   };
 });
 

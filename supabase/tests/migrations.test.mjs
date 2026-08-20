@@ -170,6 +170,9 @@ for (const table of [
   "staff_functions",
   "user_staff_functions",
   "organisation_managers",
+  "tasks",
+  "task_templates",
+  "task_generations",
 ]) {
   const exists =
     (await rows(db, `select 1 from information_schema.tables where table_name = '${table}'`))

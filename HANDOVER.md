@@ -33,7 +33,7 @@ under `.localhost` to 127.0.0.1 with no hosts file and no configuration.
 ## 2. Built and verified
 
 Verified means a test suite asserts it, against real Postgres where the claim is
-about the database. `npm test` runs everything: **443 checks across thirteen
+about the database. `npm test` runs everything: **462 checks across thirteen
 suites**, all passing at the time of writing.
 
 | Suite | Checks | What it proves |
@@ -43,13 +43,13 @@ suites**, all passing at the time of writing.
 | `test-import` | 22 | Importing the same workbook twice writes nothing |
 | `test-mail` | 11 | A send failure never carries a provider body; the console transport refuses production |
 | `test-routes` | 15 | Route *shape* — see the caveat in section 6 |
-| `migrations` | 48 | Every migration applies twice; schema, append-only rules, borrowed sets |
+| `migrations` | 63 | Every migration applies twice; schema, append-only rules, borrowed sets |
 | `tiers` | 47 | Every privilege tier sees exactly what it should, including the union rule |
 | `generation` | 25 | The generation commit transaction, and the freeze afterwards |
 | `clients` | 25 | The create-client transaction, and the derived programme leads |
 | `responses` | 29 | Status, due date, bulk reassign, and what the blocking bar derives from |
 | `client-link` | 59 | The magic-link flow end to end, including the plaintext-token property |
-| `tasks` | 42 | Approval creates work; a changed answer flags it rather than rewriting |
+| `tasks` | 66 | Approval creates work; the per-pair guard; a changed answer flags rather than rewrites |
 | `sql-suite` | 42 | Runs `test_privilege_tiers.sql`, the file you paste into the SQL editor |
 
 ### The parts worth knowing about
@@ -174,8 +174,9 @@ Ordered by how much they will cost if ignored.
 ### Three migrations are pending
 
 `20260812180000_client_answers`, `20260812190000_link_send_outcome` and
-`20260812200000_task_engine` have not been applied. **The client onboarding page
-and the Tasks tab will fail until they are.**
+`20260812210000_task_generations` have not been applied. `20260812200000_task_engine`
+**has** been applied. **The client onboarding page will fail until the first two
+are, and the Tasks tab will misbehave until the third is.**
 
 ```bash
 npx supabase db push
@@ -264,7 +265,7 @@ deliberately not built. The same limitation applies to hand-set ownership.
 
 ```bash
 npm run dev          # internal app on :3000, client surfaces on client.localhost:3000
-npm test             # everything, 443 checks
+npm test             # everything, 462 checks
 npm run test-db      # just the database suites
 npm run cf:preview   # the real Cloudflare runtime, locally
 ```

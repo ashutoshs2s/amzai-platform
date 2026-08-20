@@ -83,9 +83,9 @@ await db.exec(approve(responses[0].id));
 
 t.check("approving a question with no template creates no work",
   (await taskCount(responses[0].id)) === 0);
-t.check("and tasks_generated stays false, so the door is not silently closed",
-  (await one(db, `select tasks_generated from public.onboarding_responses
-                  where id = '${responses[0].id}'`)).tasks_generated === false);
+t.check("and no generation is recorded, so the door is not silently closed",
+  (await one(db, `select count(*)::int as n from public.task_generations
+                  where response_id = '${responses[0].id}'`)).n === 0);
 
 /* -------------------------------------------------------------------------- */
 /* Approval creates the work a question defines                               */
@@ -106,9 +106,9 @@ await db.exec(`update public.onboarding_responses set status = 'submitted'
 await db.exec(approve(responses[0].id));
 
 t.check("approving now creates both tasks", (await taskCount(responses[0].id)) === 2);
-t.check("and tasks_generated is set", (await one(db,
-  `select tasks_generated from public.onboarding_responses
-   where id = '${responses[0].id}'`)).tasks_generated === true);
+t.check("and one generation row exists per template that fired",
+  (await one(db, `select count(*)::int as n from public.task_generations
+                  where response_id = '${responses[0].id}'`)).n === 2);
 
 const built = await rows(
   db,
@@ -121,9 +121,21 @@ t.check("the single holder of the role is assigned",
   built.every((task) => task.assignee_id === sana), JSON.stringify(built.map((b) => b.assignee_id)));
 t.check("the role it resolved from is recorded",
   built.every((task) => task.role_on_program === "delivery_lead"));
-t.check("weeks from start resolves against the programme's start date",
-  built.find((b) => b.title === "Build the target list").due_date instanceof Date ||
-    typeof built.find((b) => b.title === "Build the target list").due_date === "string");
+/*
+  The arithmetic, against known dates. The first version of this asserted only
+  that due_date was a Date or a string, which would have passed for any date at
+  all — including a wrong one. The programme starts 2026-09-01 and its milestone
+  is 2026-11-30.
+*/
+const asDay = (value) =>
+  value === null ? null : new Date(value).toISOString().slice(0, 10);
+
+t.check("weeks from start: 2 weeks after 2026-09-01 is 2026-09-15",
+  asDay(built.find((b) => b.title === "Build the target list").due_date) === "2026-09-15",
+  String(asDay(built.find((b) => b.title === "Build the target list").due_date)));
+t.check("days before the milestone: 30 days before 2026-11-30 is 2026-10-31",
+  asDay(built.find((b) => b.title.startsWith("Check it")).due_date) === "2026-10-31",
+  String(asDay(built.find((b) => b.title.startsWith("Check it")).due_date)));
 t.check("the blocking flag carries over",
   built.find((b) => b.title === "Build the target list").blocking === true);
 t.check("each task records the answer it was built from",
@@ -134,6 +146,176 @@ t.check("and is marked as coming from onboarding",
 t.check("creating a task is audited",
   (await one(db, `select count(*)::int as n from public.audit_events
                   where table_name = 'tasks' and action = 'insert'`)).n === 2);
+
+/* -------------------------------------------------------------------------- */
+/* A due date with nothing to count from                                      */
+/* -------------------------------------------------------------------------- */
+
+{
+  // A programme with no dates at all, so the offset has no anchor.
+  const dateless = (
+    await one(db, `insert into public.programs (organisation_id, name, slug, type)
+                   values ('${org}','No dates','no-dates','event') returning id`)
+  ).id;
+  await db.exec(`insert into public.program_assignments (program_id, user_id, role_on_program)
+                 values ('${dateless}','${sana}','delivery_lead')`);
+
+  const field = (
+    await one(db, `insert into public.onboarding_template_fields
+                     (template_id, section, sort_order, question, default_owner, default_offset_type)
+                   values ('${template}','S',20,'Undated?','client','weeks_from_start')
+                   returning id`)
+  ).id;
+  await db.exec(`insert into public.task_templates
+    (template_field_id, title, default_assignee_role, default_offset_type, default_offset_value)
+    values ('${field}','Undated work','delivery_lead','weeks_from_start',2)`);
+
+  const response = (
+    await one(db, `insert into public.onboarding_responses
+                     (program_id, template_field_id, owner, response)
+                   values ('${dateless}','${field}','client','x') returning id`)
+  ).id;
+  await db.exec(`update public.onboarding_responses set status='approved' where id='${response}'`);
+
+  t.check("no date to count from leaves the due date null rather than inventing one",
+    (await one(db, `select due_date from public.tasks
+                    where source_response_id = '${response}'`)).due_date === null);
+}
+
+/* -------------------------------------------------------------------------- */
+/* One row per (answer, template), which is what lets a later template fire   */
+/* -------------------------------------------------------------------------- */
+
+{
+  const field = (
+    await one(db, `insert into public.onboarding_template_fields
+                     (template_id, section, sort_order, question, default_owner, default_offset_type)
+                   values ('${template}','S',30,'Grows over time?','client','weeks_from_start')
+                   returning id`)
+  ).id;
+  const first = (
+    await one(db, `insert into public.task_templates
+                     (template_field_id, title, default_assignee_role, sort_order)
+                   values ('${field}','The first thing','delivery_lead',1) returning id`)
+  ).id;
+
+  const response = (
+    await one(db, `insert into public.onboarding_responses
+                     (program_id, template_field_id, owner, response)
+                   values ('${prog}','${field}','client','An answer') returning id`)
+  ).id;
+  await db.exec(`update public.onboarding_responses set status='approved' where id='${response}'`);
+
+  const countTasks = async () =>
+    (await one(db, `select count(*)::int as n from public.tasks
+                    where source_response_id = '${response}'`)).n;
+  const countPairs = async () =>
+    (await one(db, `select count(*)::int as n from public.task_generations
+                    where response_id = '${response}'`)).n;
+
+  t.check("the first template fires on approval", (await countTasks()) === 1);
+  t.check("and records the pair", (await countPairs()) === 1);
+
+  /*
+    The case the boolean made impossible: a template written after the answer
+    was already approved. This is the normal workflow, not an edge.
+  */
+  const second = (
+    await one(db, `insert into public.task_templates
+                     (template_field_id, title, default_assignee_role, sort_order)
+                   values ('${field}','The second thing','delivery_lead',2) returning id`)
+  ).id;
+
+  const created = (await one(db, `select public.backfill_task_template('${second}') as n`)).n;
+  t.check("a template authored later fires against the approved answer", created === 1,
+    `created ${created}`);
+  t.check("producing exactly one new task", (await countTasks()) === 2);
+  t.check("and not duplicating the first",
+    (await one(db, `select count(*)::int as n from public.tasks
+                    where source_response_id = '${response}'
+                      and source_task_template_id = '${first}'`)).n === 1);
+  t.check("with a pair row each", (await countPairs()) === 2);
+
+  // The same pair, twice, by every route there is.
+  t.check("backfilling the same template again creates nothing",
+    (await one(db, `select public.backfill_task_template('${second}') as n`)).n === 0);
+  t.check("and no extra task appeared", (await countTasks()) === 2);
+
+  await db.exec(`update public.onboarding_responses set status='submitted' where id='${response}'`);
+  await db.exec(`update public.onboarding_responses set status='approved' where id='${response}'`);
+  t.check("re-approving generates nothing, because both pairs have fired",
+    (await countTasks()) === 2);
+  t.check("and adds no pair rows", (await countPairs()) === 2);
+
+  await t.refuses("the same pair cannot be written directly either", db, null,
+    `insert into public.task_generations (response_id, task_template_id)
+     values ('${response}','${first}')`);
+
+  // A third template, to prove the door stays open indefinitely.
+  const third = (
+    await one(db, `insert into public.task_templates
+                     (template_field_id, title, default_assignee_role, sort_order)
+                   values ('${field}','The third thing','delivery_lead',3) returning id`)
+  ).id;
+  t.check("and a third template still fires later",
+    (await one(db, `select public.backfill_task_template('${third}') as n`)).n === 1);
+  t.check("leaving three tasks and three pairs",
+    (await countTasks()) === 3 && (await countPairs()) === 3);
+
+  await t.refuses("backfilling an unknown template is refused", db, null,
+    `select public.backfill_task_template('00000000-0000-0000-0000-000000000000')`,
+    "No active task template");
+
+  /*
+    A deactivated template is not a template any more. Removing one in the app
+    deactivates it, and it must not become firable again by backfill.
+  */
+  await db.exec(`update public.task_templates set active = false where id = '${third}'`);
+  await t.refuses("a deactivated template cannot be backfilled", db, null,
+    `select public.backfill_task_template('${third}')`, "No active task template");
+}
+
+/* -------------------------------------------------------------------------- */
+/* Generating and flagging in the same statement                              */
+/* -------------------------------------------------------------------------- */
+
+{
+  const field = (
+    await one(db, `insert into public.onboarding_template_fields
+                     (template_id, section, sort_order, question, default_owner, default_offset_type)
+                   values ('${template}','S',40,'Both at once?','client','weeks_from_start')
+                   returning id`)
+  ).id;
+  await db.exec(`insert into public.task_templates (template_field_id, title, default_assignee_role)
+                 values ('${field}','Original work','delivery_lead')`);
+
+  const response = (
+    await one(db, `insert into public.onboarding_responses
+                     (program_id, template_field_id, owner, response)
+                   values ('${prog}','${field}','client','First') returning id`)
+  ).id;
+  await db.exec(`update public.onboarding_responses set status='approved' where id='${response}'`);
+  await db.exec(`update public.onboarding_responses set status='submitted' where id='${response}'`);
+
+  // A later template, plus an answer change and an approval in ONE statement.
+  await db.exec(`insert into public.task_templates (template_field_id, title, default_assignee_role)
+                 values ('${field}','Later work','delivery_lead')`);
+  await db.exec(`update public.onboarding_responses
+                 set response = 'Second', status = 'approved' where id = '${response}'`);
+
+  const all = await rows(db, `select title, source_answer, stale_since from public.tasks
+                              where source_response_id = '${response}' order by title`);
+
+  t.check("the later template fired in the same statement", all.length === 2,
+    JSON.stringify(all.map((a) => a.title)));
+  t.check("the pre-existing task is flagged, because its answer moved",
+    all.find((a) => a.title === "Original work").stale_since !== null);
+  t.check("and the task created moments earlier is NOT flagged against itself",
+    all.find((a) => a.title === "Later work").stale_since === null,
+    JSON.stringify(all.find((a) => a.title === "Later work")));
+  t.check("because it was built from the answer as it now stands",
+    all.find((a) => a.title === "Later work").source_answer === "Second");
+}
 
 /* -------------------------------------------------------------------------- */
 /* A role two people hold is never broken by a guess. SPEC.md 4.3             */
@@ -280,6 +462,22 @@ t.check("a second change does not reset when it first went stale",
   t.check("so the record shows both, not one rewritten",
     (await one(db, `select count(*)::int as n from public.tasks
                     where source_response_id = '${response}'`)).n === 2);
+
+  /*
+    Regeneration replaces a TASK; it is not a new generation of the pair. The
+    pair generated once and that stays true, which is what stops a later
+    backfill firing over work an operator has already dealt with.
+  */
+  t.check("regenerating leaves exactly one pair row",
+    (await one(db, `select count(*)::int as n from public.task_generations
+                    where response_id = '${response}'`)).n === 1);
+  t.check("and the replacement carries the same template",
+    (await one(db, `select count(distinct source_task_template_id)::int as n
+                    from public.tasks where source_response_id = '${response}'`)).n === 1);
+  t.check("so a backfill of that template finds nothing left to do",
+    (await one(db, `select public.backfill_task_template(
+                      (select task_template_id from public.task_generations
+                       where response_id = '${response}')) as n`)).n === 0);
 
   /*
     Created here rather than sub-selected. A sub-select that matches nothing
