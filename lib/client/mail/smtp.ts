@@ -15,6 +15,18 @@ import type { Mailer, Message, SendResult } from "./types";
  *
  * Credentials come from the environment and never appear in a log, an error or
  * a health check.
+ *
+ * On Cloudflare Workers, verified rather than assumed. Run against workerd with
+ * this project's own compatibility_date and nodejs_compat flag, all three hold:
+ *
+ *   cloudflare:sockets connects to smtp.gmail.com:587 and gets the greeting
+ *   node:net is present, and connects, which is what nodemailer uses
+ *   nodemailer imports and exposes createTransport
+ *
+ * An earlier comment here warned that Workers could not do this. That was true
+ * of older runtimes and is not true of this one. The one thing a local workerd
+ * run cannot prove is Cloudflare's edge egress policy on port 587 — the runtime
+ * question is settled, the network question needs one deploy.
  */
 export function smtpMailer(): Mailer | null {
   const host = process.env.SMTP_HOST;
