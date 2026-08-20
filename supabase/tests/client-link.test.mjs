@@ -237,6 +237,125 @@ t.check("a revoked session names nobody",
 }
 
 /* -------------------------------------------------------------------------- */
+/* A client answering                                                         */
+/* -------------------------------------------------------------------------- */
+
+{
+  const template = (
+    await one(db, `insert into public.onboarding_templates (name, slug, kind, version)
+                   values ('Core','core','core',1) returning id`)
+  ).id;
+  const fields = await rows(
+    db,
+    `insert into public.onboarding_template_fields
+       (template_id, section, sort_order, question, default_owner, default_offset_type)
+     values ('${template}','S',1,'Client question?','client','weeks_from_start'),
+            ('${template}','S',2,'Amzai question?','amzai','weeks_from_start'),
+            ('${template}','S',3,'Shared question?','both','weeks_from_start')
+     returning id`,
+  );
+  const answers = await rows(
+    db,
+    `insert into public.onboarding_responses (program_id, template_field_id, owner)
+     values ('${progA}','${fields[0].id}','client'),
+            ('${progA}','${fields[1].id}','amzai'),
+            ('${progA}','${fields[2].id}','both')
+     returning id`,
+  );
+  // One on the other programme, to prove a session cannot reach across.
+  const elsewhere = (
+    await one(db, `insert into public.onboarding_responses (program_id, template_field_id, owner)
+                   values ('${progB}','${fields[0].id}','client') returning id`)
+  ).id;
+
+  // A live session for programme A.
+  const answerLink = newToken();
+  const answerSession = newToken();
+  await db.exec(`insert into public.client_contacts (program_id, organisation_id, name, email)
+                 values ('${progA}','${org}','Answer Person','answer@client.test')`);
+  await issued("answer@client.test", answerLink.hash, progA, "'203.0.113.55'");
+  await one(db, consume(answerLink.hash, progA, answerSession.hash));
+
+  const answer = (responseId, text, sessionHash = answerSession.hash, programme = progA) =>
+    `select public.client_answer_question('${sessionHash}','${programme}','${responseId}',
+       '${text}') as result`;
+
+  t.check("a client answers their own question",
+    (await one(db, answer(answers[0].id, "Our answer"))).result.ok === true);
+  t.check("and it is stored",
+    (await one(db, `select response, answer_source, status from public.onboarding_responses
+                    where id = '${answers[0].id}'`)).response === "Our answer");
+
+  const stored = await one(db, `select answer_source, answered_by, answered_by_contact_id, status
+                                from public.onboarding_responses where id = '${answers[0].id}'`);
+  t.check("recorded as client written", stored.answer_source === "client_written");
+  t.check("naming the contact and no staff member",
+    stored.answered_by_contact_id !== null && stored.answered_by === null);
+  t.check("and moved to submitted, so Amzai has something to look at",
+    stored.status === "submitted");
+
+  const answerAudit = await one(
+    db,
+    `select actor_type, actor_contact_id from public.audit_events
+     where table_name = 'onboarding_responses' order by occurred_at desc limit 1`,
+  );
+  t.check("the answer is attributed to the contact, not the system",
+    answerAudit?.actor_type === "client_contact" &&
+      answerAudit?.actor_contact_id === stored.answered_by_contact_id,
+    JSON.stringify(answerAudit));
+
+  t.check("a shared question is theirs to answer too",
+    (await one(db, answer(answers[2].id, "Shared"))).result.ok === true);
+
+  t.check("an Amzai-owned question is not, even named directly",
+    (await one(db, answer(answers[1].id, "Sneaky"))).result.ok === false);
+  t.check("and nothing was written to it",
+    (await one(db, `select response from public.onboarding_responses
+                    where id = '${answers[1].id}'`)).response === null);
+
+  t.check("a response on another programme is out of reach",
+    (await one(db, answer(elsewhere, "Wrong programme"))).result.ok === false);
+  t.check("and untouched",
+    (await one(db, `select response from public.onboarding_responses
+                    where id = '${elsewhere}'`)).response === null);
+
+  t.check("no session means no answer",
+    (await one(db, answer(answers[0].id, "Nope", newToken().hash))).result.ok === false);
+
+  t.check("clearing an answer clears its authorship too",
+    (await one(db, `select public.client_answer_question('${answerSession.hash}','${progA}',
+                      '${answers[0].id}', '') as result`)).result.ok === true);
+  const cleared = await one(db, `select response, answer_source, answered_by_contact_id, status
+                                 from public.onboarding_responses where id = '${answers[0].id}'`);
+  t.check("leaving no author against an empty answer",
+    cleared.response === null && cleared.answer_source === null &&
+      cleared.answered_by_contact_id === null && cleared.status === "not_started",
+    JSON.stringify(cleared));
+
+  // The view is the mechanism, not a filter in a route.
+  const visible = await rows(
+    db,
+    `select question from public.client_onboarding_questions
+     where program_id = '${progA}' order by sort_order`,
+  );
+  t.equal("the client view carries only their questions",
+    visible.map((v) => v.question), ["Client question?", "Shared question?"]);
+
+  const viewColumns = (
+    await rows(db, `select column_name from information_schema.columns
+                    where table_name = 'client_onboarding_questions'`)
+  ).map((c) => c.column_name);
+  t.check("and no internal column at all",
+    !["assignee_id", "due_date", "blocking", "answered_by"].some((c) => viewColumns.includes(c)),
+    viewColumns.join(", "));
+
+  await db.exec(`update public.client_sessions set revoked_at = clock_timestamp()
+                 where token_hash = '${answerSession.hash}'`);
+  t.check("revoking the session ends the ability to answer",
+    (await one(db, answer(answers[2].id, "After revoke"))).result.ok === false);
+}
+
+/* -------------------------------------------------------------------------- */
 /* THE PLAINTEXT TOKEN NEVER REACHES THE DATABASE                             */
 /*                                                                            */
 /* Run the whole flow with a token nobody else will ever generate, then look   */

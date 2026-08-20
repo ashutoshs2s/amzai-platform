@@ -16,8 +16,11 @@ export const dynamic = "force-dynamic";
 
 export default async function RequestLinkPage({
   params,
+  searchParams,
 }: PageProps<"/c/[org]/[programme]/request">) {
   const { org, programme } = await params;
+  const query = await searchParams;
+  const link = query.link === "expired" || query.link === "missing" ? query.link : null;
 
   const db = createAdminClient();
   const { data } = await db
@@ -37,6 +40,7 @@ export default async function RequestLinkPage({
       programmeSlug={programme}
       /* An unknown programme still renders, with a neutral heading. */
       programmeName={known ? (data?.name ?? null) : null}
+      linkState={link}
     />
   );
 }

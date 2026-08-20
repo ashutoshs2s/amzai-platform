@@ -23,10 +23,13 @@ export function RequestLinkForm({
   organisationSlug,
   programmeSlug,
   programmeName,
+  linkState,
 }: {
   organisationSlug: string;
   programmeSlug: string;
   programmeName: string | null;
+  /** Why they were sent back here, if they were. */
+  linkState: "expired" | "missing" | null;
 }) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -59,6 +62,19 @@ export function RequestLinkForm({
           <h1 className="mt-6 text-page-title font-semibold text-ink">
             {programmeName ? `Onboarding for ${programmeName}` : "Onboarding"}
           </h1>
+          {/*
+            One message for used, expired, and never valid. Telling them which
+            would say whether the link was ever real, and a client who followed
+            an old link does not need to know the difference — only what to do
+            next, which is the same thing in every case.
+          */}
+          {linkState && (
+            <p className="mt-3 rounded-base border border-line bg-surface p-3 text-body text-ink">
+              That link has been used or has expired. Links work once and last 30 minutes.
+              Ask for another below and your answers will still be here.
+            </p>
+          )}
+
           <p className="mt-3 text-body text-slate">
             Enter the email address Amzai has for you and we will send you a link. There is
             no password and no account to create.

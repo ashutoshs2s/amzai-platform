@@ -36,14 +36,31 @@ export async function GET(
   const { org, programme } = await context.params;
 
   /*
-    Built from the request's own origin, so the redirect stays on the host the
-    client arrived at. The /c prefix is absent because that prefix is internal:
-    the proxy rewrites onto it and the client never sees it.
+    A RELATIVE Location, deliberately.
+
+    NextResponse.redirect wants an absolute URL, and building one from
+    request.nextUrl.origin sent clients to the wrong host: this handler is
+    reached through a rewrite, and after that rewrite the origin is the internal
+    one, not the client host the browser actually asked for. A valid link
+    therefore 307'd to http://localhost:3000/... where the page does not exist
+    (404), and an invalid one landed on the staff sign-in screen — which should
+    be unreachable from the client host at all.
+
+    HTTP allows a relative Location and the browser resolves it against the URL
+    it requested, which is the client host by definition. So there is no origin
+    to get wrong, in development or in production.
+
+    The /c prefix is absent because it is internal: the proxy rewrites onto it
+    and a client never sees it.
   */
-  const to = (path: string) => NextResponse.redirect(new URL(path, request.nextUrl.origin));
+  const to = (path: string) => {
+    const response = new NextResponse(null, { status: 307 });
+    response.headers.set("Location", path);
+    return response;
+  };
 
   const token = request.nextUrl.searchParams.get("t");
-  if (!token) return to(`/${org}/${programme}/request`);
+  if (!token) return to(`/${org}/${programme}/request?link=missing`);
 
   const db = createAdminClient();
   const { data: found } = await db
@@ -54,7 +71,7 @@ export async function GET(
 
   const organisation = found?.organisation as unknown as { slug: string } | null;
   if (!found || organisation?.slug !== org) {
-    return to(`/${org}/${programme}/request?expired=1`);
+    return to(`/${org}/${programme}/request?link=expired`);
   }
 
   const session = newToken();
@@ -68,8 +85,9 @@ export async function GET(
 
   if (!data || data.ok !== true) {
     // Used, expired, issued for another programme, or never real. The visitor
-    // is told the same thing in every case and offered another link.
-    return to(`/${org}/${programme}/request?expired=1`);
+    // is told the same thing in every case and offered another link: telling
+    // them which would say whether the token was ever real.
+    return to(`/${org}/${programme}/request?link=expired`);
   }
 
   const response = to(`/${org}/${programme}`);
