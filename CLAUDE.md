@@ -11,7 +11,7 @@ Read both before building or changing anything.
 
 An internal operations platform for Amzai, a B2B executive events and demand generation business. Five to fifteen internal operators use it daily. Clients do not have accounts and never log in.
 
-Stack: Next.js with TypeScript, Tailwind, Supabase Postgres, deployed on Cloudflare via `@opennextjs/cloudflare`. Transactional email through Resend, which is the only thing that sends onboarding links.
+Stack: Next.js with TypeScript, Tailwind, Supabase Postgres, deployed on Cloudflare via `@opennextjs/cloudflare`. Transactional email through SMTP, which is the only thing that sends onboarding links. The send sits behind one small interface in `lib/client/mail`, so changing provider is configuration rather than code.
 
 Two domains:
 
