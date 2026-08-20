@@ -237,6 +237,79 @@ t.check("a revoked session names nobody",
 }
 
 /* -------------------------------------------------------------------------- */
+/* Whether the email actually left                                            */
+/*                                                                            */
+/* The worst failure in this flow, because nothing reads as broken: the client */
+/* waits for something that never left and Amzai believes it arrived.          */
+/* -------------------------------------------------------------------------- */
+
+{
+  const sendLink = newToken();
+  await db.exec(`insert into public.client_contacts (program_id, organisation_id, name, email)
+                 values ('${progA}','${org}','Send Person','send@client.test')`);
+  await issued("send@client.test", sendLink.hash, progA, "'203.0.113.77'");
+
+  const row = async () =>
+    one(db, `select send_status, send_attempted_at, send_detail
+             from public.client_link_requests where token_hash = '${sendLink.hash}'`);
+
+  const fresh = await row();
+  t.check("a new link starts pending, not sent", fresh.send_status === "pending", fresh.send_status);
+  t.check("with nothing attempted yet", fresh.send_attempted_at === null);
+
+  const record = (status, detail = "null") =>
+    `select public.record_client_link_send('${sendLink.hash}','${status}',${detail}) as ok`;
+
+  t.check("a failure is recorded as a failure",
+    (await one(db, record("failed", "'SMTP error EAUTH'"))).ok === true);
+  const failed = await row();
+  t.check("and reads as one", failed.send_status === "failed", failed.send_status);
+  t.check("with a code an operator can act on", failed.send_detail === "SMTP error EAUTH");
+  t.check("and when it was tried", failed.send_attempted_at !== null);
+
+  t.check("no provider configured is its own state, not a failure",
+    (await one(db, record("not_configured"))).ok === true &&
+      (await row()).send_status === "not_configured");
+
+  t.check("a success is recorded too",
+    (await one(db, record("sent"))).ok === true && (await row()).send_status === "sent");
+
+  await t.refuses("an unknown status is refused", db, null, record("probably"),
+    "Unknown send status");
+
+  t.check("recording against a token that does not exist changes nothing",
+    (await one(db, `select public.record_client_link_send('${newToken().hash}','sent') as ok`))
+      .ok === false);
+
+  /*
+    The detail is capped in the database as well as in the app. The app passes a
+    code, but a cap is what makes it impossible for a provider's message — which
+    can quote the message it rejected, and therefore the link — to land here by
+    accident.
+  */
+  const longDetail = "x".repeat(400);
+  await one(db, record("failed", `'${longDetail}'`));
+  const capped = await row();
+  t.check("a long detail is capped rather than stored whole",
+    capped.send_detail.length === 120, `length ${capped.send_detail.length}`);
+
+  /*
+    The one write in this flow where 'system' is the truthful actor. The contact
+    asked for the link; nobody sent it, so attributing the send outcome to them
+    would be a small lie in the audit trail.
+  */
+  const sendAudit = await one(
+    db,
+    `select actor_type, actor_contact_id from public.audit_events
+     where table_name = 'client_link_requests' and action = 'update'
+     order by occurred_at desc limit 1`,
+  );
+  t.check("the send outcome is attributed to system, because no person sent it",
+    sendAudit?.actor_type === "system" && sendAudit?.actor_contact_id === null,
+    JSON.stringify(sendAudit));
+}
+
+/* -------------------------------------------------------------------------- */
 /* A client answering                                                         */
 /* -------------------------------------------------------------------------- */
 

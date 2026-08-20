@@ -21,10 +21,16 @@ export type ClientContact = {
   name: string;
   email: string;
   active: boolean;
-  /** When a link was last sent to them, or null. */
+  /** When a link was last requested for them, or null. */
   lastRequestedAt: string | null;
   /** Whether that link has been used. */
   lastConsumedAt: string | null;
+  /**
+   * Whether the email actually left. A request row alone means only that a
+   * link was issued, which is not the same thing.
+   */
+  lastSendStatus: "pending" | "sent" | "failed" | "not_configured" | null;
+  lastSendDetail: string | null;
 };
 
 export async function listClientContacts(programmeId: string): Promise<ClientContact[]> {
@@ -38,7 +44,7 @@ export async function listClientContacts(programmeId: string): Promise<ClientCon
       .order("name"),
     supabase
       .from("client_link_requests")
-      .select("client_contact_id, created_at, consumed_at")
+      .select("client_contact_id, created_at, consumed_at, send_status, send_detail")
       .eq("program_id", programmeId)
       .order("created_at", { ascending: false }),
   ]);
@@ -54,6 +60,8 @@ export async function listClientContacts(programmeId: string): Promise<ClientCon
       active: contact.active,
       lastRequestedAt: latest?.created_at ?? null,
       lastConsumedAt: latest?.consumed_at ?? null,
+      lastSendStatus: (latest?.send_status as ClientContact["lastSendStatus"]) ?? null,
+      lastSendDetail: latest?.send_detail ?? null,
     };
   });
 }

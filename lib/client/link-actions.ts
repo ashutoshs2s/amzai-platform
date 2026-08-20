@@ -70,12 +70,27 @@ export async function requestOnboardingLink(
   // Which one, this code never learns.
   if (!data || data.issued !== true) return NEUTRAL;
 
-  await sendOnboardingLink({
+  const sent = await sendOnboardingLink({
     to: trimmed,
     programmeName: programme.name,
     organisationName: organisation.name,
     url: `${clientOrigin()}/${organisationSlug}/${programmeSlug}/verify?t=${link.token}`,
     expiresInMinutes: LINK_TTL_MINUTES,
+  });
+
+  /*
+    Recorded against the link, because the row existing is not the same as the
+    email arriving. Without this the Contacts tab reads "Link sent" for a send
+    that failed, the client waits for something that never left, and Amzai
+    believes it did — with nothing anywhere reading as broken.
+
+    The detail is whatever the mail layer produced, which is a code and never a
+    provider body; the database caps it again regardless.
+  */
+  await db.rpc("record_client_link_send", {
+    p_token_hash: link.hash,
+    p_status: sent.sent ? "sent" : sent.reason === "not_configured" ? "not_configured" : "failed",
+    p_detail: sent.sent ? null : (sent.detail ?? null),
   });
 
   return NEUTRAL;

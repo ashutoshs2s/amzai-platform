@@ -21,6 +21,51 @@ import { formatDayMonth } from "@/lib/time";
  * checked against — an address not on it gets no link and, deliberately, no
  * hint that it is not on it.
  */
+/**
+ * What the last link actually did.
+ *
+ * "Link sent" used to be printed from the request row existing, which said only
+ * that a link was issued. A send that failed read identically to one that
+ * arrived, so the client waited and Amzai believed it had gone. Each state now
+ * says which it was, and the two failures are named apart because they need
+ * different people to act: nobody configured a mail provider, or the provider
+ * refused this message.
+ */
+function sendState(contact: ClientContact): { text: string; tone: string } | null {
+  if (!contact.lastRequestedAt) return null;
+
+  const when = formatDayMonth(contact.lastRequestedAt);
+
+  switch (contact.lastSendStatus) {
+    case "sent":
+      return {
+        text: `Link sent ${when}${contact.lastConsumedAt ? ", used" : ", unused"}`,
+        tone: "text-slate",
+      };
+    case "failed":
+      return {
+        text: `Link NOT sent ${when} — the mail provider refused it${
+          contact.lastSendDetail ? ` (${contact.lastSendDetail})` : ""
+        }`,
+        tone: "text-critical",
+      };
+    case "not_configured":
+      return {
+        text: `Link NOT sent ${when} — no mail provider is configured`,
+        tone: "text-critical",
+      };
+    default:
+      /*
+        pending, or a row written before this was recorded. Deliberately not
+        "sent": assuming success is the mistake this exists to correct.
+      */
+      return {
+        text: `Link issued ${when}, delivery unknown`,
+        tone: "text-watch",
+      };
+  }
+}
+
 export function ContactsTab({
   programmeId,
   contacts,
@@ -136,13 +181,12 @@ export function ContactsTab({
                 )}
 
                 <span className="ml-auto flex items-center gap-3">
-                  {contact.lastRequestedAt && (
-                    <span className="text-caption text-slate">
-                      Link sent{" "}
-                      <span className="font-time">{formatDayMonth(contact.lastRequestedAt)}</span>
-                      {contact.lastConsumedAt ? ", used" : ", unused"}
-                    </span>
-                  )}
+                  {(() => {
+                    const state = sendState(contact);
+                    return state ? (
+                      <span className={`text-caption ${state.tone}`}>{state.text}</span>
+                    ) : null;
+                  })()}
                   {canEdit && (
                     <Button variant="quiet" onClick={() => toggle(contact)}>
                       {contact.active ? "Deactivate" : "Reactivate"}
@@ -198,6 +242,13 @@ export function ContactsTab({
         Deactivating stops a contact requesting a link or answering anything. Answers they
         already gave keep naming them, which is why there is no delete here.
       </p>
+
+      {rows.some((c) => c.lastSendStatus === "failed" || c.lastSendStatus === "not_configured") && (
+        <p className="mt-2 max-w-[640px] text-body text-critical">
+          A link that was not sent is still valid — the client simply never received it.
+          Fix the mail setup and ask them to request another.
+        </p>
+      )}
     </div>
   );
 }
