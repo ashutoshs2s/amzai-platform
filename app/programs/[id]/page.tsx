@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { AccessState } from "@/components/AccessState";
 import { listClientContacts } from "@/lib/data/contacts";
+import { anyTaskTemplatesExist, listTasks } from "@/lib/data/tasks";
 import { getProgramme } from "@/lib/data/programmes";
 import { canGenerateForProgramme } from "@/lib/data/generation";
 import { getSession } from "@/lib/data/session";
@@ -35,7 +36,11 @@ export default async function ProgrammeDetailPage({
   const detail = await getProgramme(id);
   if (!detail) notFound();
 
-  const contacts = await listClientContacts(id);
+  const [contacts, tasks, anyTaskTemplates] = await Promise.all([
+    listClientContacts(id),
+    listTasks(id),
+    anyTaskTemplatesExist(),
+  ]);
 
   return (
     <ProgrammeDetailContent
@@ -46,6 +51,8 @@ export default async function ProgrammeDetailPage({
          follows the same gate as generating: admin, or the manager who holds
          this client. */
       canEditContacts={await canGenerateForProgramme(id)}
+      tasks={tasks}
+      anyTaskTemplates={anyTaskTemplates}
     />
   );
 }

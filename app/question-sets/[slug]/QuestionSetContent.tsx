@@ -3,9 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 
-import { Select } from "@/components/form/Field";
+import { Button } from "@/components/Button";
+import { Field, Select, TextInput } from "@/components/form/Field";
 import { setFieldOwner } from "@/lib/data/question-set-actions";
-import { KIND_LABEL, OWNER_LABEL, OWNERS, type QuestionSetDetail } from "@/lib/question-sets";
+import { addTaskTemplate, removeTaskTemplate } from "@/lib/data/task-actions";
+import {
+  KIND_LABEL,
+  OWNER_LABEL,
+  OWNERS,
+  type QuestionSetDetail,
+  type QuestionSetField,
+} from "@/lib/question-sets";
+import { ROLE_ON_PROGRAMME, ROLE_ON_PROGRAMME_LABEL } from "@/lib/programme-types";
 
 /**
  * One question set, with ownership editable per question.
@@ -33,6 +42,7 @@ export function QuestionSetContent({
     ),
   );
   const [saved, setSaved] = useState<string | null>(null);
+  const [writingWorkFor, setWritingWorkFor] = useState<string | null>(null);
   const [error, setError] = useState<{ id: string; message: string } | null>(null);
 
   async function change(fieldId: string, owner: string) {
@@ -80,6 +90,10 @@ export function QuestionSetContent({
             Ownership decides who is asked. Changing it here affects programmes generated
             from now on and never a programme already generated, which holds its own copy.
             A question you set by hand is not overwritten by a later import.
+            {" "}
+            <span className="text-ink">
+              Work defines what approving an answer produces on the Tasks tab.
+            </span>
           </>
         ) : (
           <>
@@ -119,6 +133,16 @@ export function QuestionSetContent({
                         {error.message}
                       </span>
                     )}
+
+                    <FieldWork
+                      slug={set.slug}
+                      field={field}
+                      canEdit={canEdit}
+                      open={writingWorkFor === field.id}
+                      onToggle={() =>
+                        setWritingWorkFor((c) => (c === field.id ? null : field.id))
+                      }
+                    />
                   </td>
                   <td className="w-[210px] px-3 py-2 align-top">
                     <span className="flex items-center gap-2">
@@ -160,6 +184,163 @@ export function QuestionSetContent({
           </table>
         </section>
       ))}
+    </div>
+  );
+}
+
+
+/**
+ * What work a question produces.
+ *
+ * Nothing is supplied by default. What Amzai does once a client has answered is
+ * a judgement about delivery, not something a workbook can state, so the first
+ * few are written here by hand. From then on, approving that question's answer
+ * creates them automatically on the programme.
+ */
+function FieldWork({
+  slug,
+  field,
+  canEdit,
+  open,
+  onToggle,
+}: {
+  slug: string;
+  field: QuestionSetField;
+  canEdit: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [detail, setDetail] = useState("");
+  const [role, setRole] = useState<string>("delivery_lead");
+  const [offsetType, setOffsetType] = useState("weeks_from_start");
+  const [offsetValue, setOffsetValue] = useState("2");
+  const [blocking, setBlocking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  return (
+    <div className="mt-2">
+      {field.tasks.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {field.tasks.map((task) => (
+            <li key={task.id} className="flex flex-wrap items-baseline gap-2 text-caption">
+              <span className="text-ink">{task.title}</span>
+              <span className="text-slate">
+                {task.role ? ROLE_ON_PROGRAMME_LABEL[task.role] : "Nobody by default"}
+                {" · "}
+                {task.offsetType === "weeks_from_start"
+                  ? `${task.offsetValue} weeks from start`
+                  : `${task.offsetValue} days before the milestone`}
+                {task.blocking ? " · blocking" : ""}
+              </span>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setProblem(null);
+                    const result = await removeTaskTemplate(task.id, slug);
+                    if (!result.ok) setProblem(result.message);
+                    else location.reload();
+                  }}
+                  className="rounded-base text-caption text-accent underline underline-offset-2"
+                >
+                  Remove
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canEdit && (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="mt-1 rounded-base text-caption text-accent underline underline-offset-2"
+        >
+          {open
+            ? "Done"
+            : field.tasks.length === 0
+              ? "Define the work this produces"
+              : "Add more work"}
+        </button>
+      )}
+
+      {open && canEdit && (
+        <div className="mt-2 flex flex-col gap-2 rounded-base border border-line bg-canvas p-3">
+          <Field label="What has to be done" required>
+            <TextInput value={title} onChange={(e) => setTitle(e.target.value)} />
+          </Field>
+          <Field label="Detail" hint="Optional. Anything the person doing it needs.">
+            <TextInput value={detail} onChange={(e) => setDetail(e.target.value)} />
+          </Field>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <Field label="Falls to">
+              <Select value={role} onChange={(e) => setRole(e.target.value)}>
+                <option value="">Nobody by default</option>
+                {ROLE_ON_PROGRAMME.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_ON_PROGRAMME_LABEL[r]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Due">
+              <Select value={offsetType} onChange={(e) => setOffsetType(e.target.value)}>
+                <option value="weeks_from_start">Weeks from start</option>
+                <option value="days_before_milestone">Days before the milestone</option>
+              </Select>
+            </Field>
+            <Field label="How many">
+              <TextInput
+                type="number"
+                className="w-[80px]"
+                value={offsetValue}
+                onChange={(e) => setOffsetValue(e.target.value)}
+              />
+            </Field>
+            <label className="flex items-center gap-2 pb-2 text-body text-ink">
+              <input
+                type="checkbox"
+                checked={blocking}
+                onChange={(e) => setBlocking(e.target.checked)}
+                className="h-4 w-4 accent-[var(--accent)]"
+              />
+              Blocking
+            </label>
+          </div>
+
+          <span>
+            <Button
+              variant="primary"
+              disabled={busy || title.trim() === ""}
+              onClick={async () => {
+                setBusy(true);
+                setProblem(null);
+                const result = await addTaskTemplate({
+                  templateFieldId: field.id,
+                  slug,
+                  title,
+                  detail,
+                  role,
+                  offsetType,
+                  offsetValue: Number(offsetValue) || 0,
+                  blocking,
+                });
+                setBusy(false);
+                if (!result.ok) setProblem(result.message);
+                else location.reload();
+              }}
+            >
+              {busy ? "Adding…" : "Add this work"}
+            </Button>
+          </span>
+
+          {problem && <p className="text-caption text-critical">{problem}</p>}
+        </div>
+      )}
     </div>
   );
 }

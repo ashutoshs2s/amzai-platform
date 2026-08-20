@@ -36,6 +36,16 @@ export type QuestionSetSummary = {
   tuned: number;
 };
 
+export type FieldTaskTemplate = {
+  id: string;
+  title: string;
+  detail: string | null;
+  role: string | null;
+  offsetType: string;
+  offsetValue: number;
+  blocking: boolean;
+};
+
 export type QuestionSetField = {
   id: string;
   question: string;
@@ -45,6 +55,8 @@ export type QuestionSetField = {
   setAt: string | null;
   duplicateKind: string | null;
   duplicateOf: string | null;
+  /** What work approving this question produces. Usually none. */
+  tasks: FieldTaskTemplate[];
 };
 
 export type QuestionSetDetail = QuestionSetSummary & {

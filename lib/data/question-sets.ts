@@ -16,6 +16,7 @@ export type {
   QuestionSetSummary,
   QuestionSetField,
   QuestionSetDetail,
+  FieldTaskTemplate,
 } from "@/lib/question-sets";
 
 type Row = {
@@ -36,6 +37,17 @@ type Row = {
     duplicate_kind: string | null;
     duplicate_of: string | null;
     set_by: { full_name: string } | null;
+    task_templates: {
+      id: string;
+      title: string;
+      detail: string | null;
+      default_assignee_role: string | null;
+      default_offset_type: string;
+      default_offset_value: number;
+      blocking: boolean;
+      active: boolean;
+      sort_order: number;
+    }[] | null;
   }[];
 };
 
@@ -45,7 +57,9 @@ const SELECT = `id, slug, name, kind, version,
    fields:onboarding_template_fields (
      id, section, sort_order, question, default_owner, default_owner_set_at,
      duplicate_kind, duplicate_of,
-     set_by:users!onboarding_template_fields_default_owner_set_by_fkey ( full_name )
+     set_by:users!onboarding_template_fields_default_owner_set_by_fkey ( full_name ),
+     task_templates ( id, title, detail, default_assignee_role,
+                      default_offset_type, default_offset_value, blocking, active, sort_order )
    )`;
 
 /** Who a set applies to, said in the taxonomy's own words. */
@@ -130,6 +144,18 @@ export async function getQuestionSet(slug: string): Promise<QuestionSetDetail | 
       setAt: field.default_owner_set_at,
       duplicateKind: field.duplicate_kind,
       duplicateOf: field.duplicate_of,
+      tasks: (field.task_templates ?? [])
+        .filter((t) => t.active)
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          detail: t.detail,
+          role: t.default_assignee_role,
+          offsetType: t.default_offset_type,
+          offsetValue: t.default_offset_value,
+          blocking: t.blocking,
+        })),
     });
   }
 

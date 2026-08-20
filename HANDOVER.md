@@ -33,7 +33,7 @@ under `.localhost` to 127.0.0.1 with no hosts file and no configuration.
 ## 2. Built and verified
 
 Verified means a test suite asserts it, against real Postgres where the claim is
-about the database. `npm test` runs everything: **401 checks across twelve
+about the database. `npm test` runs everything: **443 checks across thirteen
 suites**, all passing at the time of writing.
 
 | Suite | Checks | What it proves |
@@ -49,6 +49,7 @@ suites**, all passing at the time of writing.
 | `clients` | 25 | The create-client transaction, and the derived programme leads |
 | `responses` | 29 | Status, due date, bulk reassign, and what the blocking bar derives from |
 | `client-link` | 59 | The magic-link flow end to end, including the plaintext-token property |
+| `tasks` | 42 | Approval creates work; a changed answer flags it rather than rewriting |
 | `sql-suite` | 42 | Runs `test_privilege_tiers.sql`, the file you paste into the SQL editor |
 
 ### The parts worth knowing about
@@ -170,10 +171,11 @@ a module hidden until it exists tells an operator nothing about what is coming.
 
 Ordered by how much they will cost if ignored.
 
-### Two migrations are pending
+### Three migrations are pending
 
-`20260812180000_client_answers` and `20260812190000_link_send_outcome` have not
-been applied. **The client onboarding page will fail until they are.**
+`20260812180000_client_answers`, `20260812190000_link_send_outcome` and
+`20260812200000_task_engine` have not been applied. **The client onboarding page
+and the Tasks tab will fail until they are.**
 
 ```bash
 npx supabase db push
@@ -230,74 +232,39 @@ why it is not exploitable. Read it before "fixing" it.
 
 ## 7. The next module
 
-**Module 3, Delivery Operations.** SPEC line 29 scopes it as "task engine from
-templates, portfolio calendar, attendee tracking, risk flags with numeric
-triggers" — four features sharing a module number. The task engine is the one to
-build first, and `onboarding_responses.tasks_generated` already exists waiting
-for it.
+**Module 3's task engine is built.** Schema, the approval trigger, staleness
+handling per SPEC section 8, task template authoring on `/question-sets`, and a
+Tasks tab on the programme detail. 42 tests in `supabase/tests/tasks.test.mjs`.
 
-A plan was agreed to this level of detail and no further. **Nothing has been
-built.**
+Three decisions were taken and are recorded in SPEC section 8:
 
-### What a task is
+- **A trigger, not an explicit step.** Onboarding generation freezes hundreds of
+  questions in one act and earns a preview; this is one answer at a time and
+  reversible, so it cannot be forgotten instead.
+- **It ships empty.** No task template is seeded. Inventing a starter set would
+  hand the team work to unpick, so both screens say plainly that no question
+  defines work yet and where to write the first ones.
+- **"Notify" means surfacing**, in the same language as blocking items. There is
+  no notification system and none was invented.
 
-A unit of delivery work — owner, due date, state — as distinct from an
-onboarding response, which is a question and its answer. One is information, the
-other is work that follows from it. A task carries a pointer to the answer it
-came from *and a copy of that answer as it was*, which is what makes "the answer
-changed" answerable as *what it changed from*.
+**Still unbuilt in module 3**, and deliberately separate features that happen to
+share a module number: the portfolio calendar, attendee tracking, and risk flags
+with numeric triggers.
 
-### What triggers one
+**One known limitation of task templates.** They attach to a template field,
+which is a specific question in a specific version of a set. An unchanged sheet
+reuses its field rows on re-import, so templates persist. A sheet that genuinely
+changes writes new rows, and templates do not follow to them — they would need
+re-authoring. Carrying them across a version needs a stable question key and was
+deliberately not built. The same limitation applies to hand-set ownership.
 
-Approval, not submission: `submitted` is the client's claim, `approved` is
-Amzai's acceptance, and work should follow acceptance.
-
-Not one task per answer — 400 questions would give 400 tasks and the list would
-be useless on day one. Tasks come from **task templates attached to template
-fields**, most of which carry none. That keeps the mapping in rows, the same
-rule generation already follows, and it is SPEC's own phrase: "task engine from
-templates".
-
-Assignment reuses SPEC 4.3 unchanged, including `sole_holder_of` and
-`program_role_resolutions`, which are already built.
-
-### When an approved answer later changes
-
-SPEC section 8 already decides this and it carries commercial weight:
-
-> When an answer changes after generation, flag the tasks built from it and
-> notify. Do not regenerate silently and do not lock the answer.
-
-So the answer stays editable, its tasks are flagged rather than rewritten, and
-an operator resolves each one explicitly — keep, regenerate, or cancel with a
-reason.
-
-### The open design questions
-
-**1. Trigger or explicit step?** A database trigger on approval cannot be
-forgotten and puts task creation in the same transaction as the approval. An
-explicit "generate tasks" step with a preview matches how onboarding generation
-works and is more deliberate. The recommendation was the trigger, on the grounds
-that this is incremental and reversible in a way onboarding generation is not.
-**Undecided.**
-
-**2. Who authors task templates, and when?** Attaching them at `/question-sets`
-means module 3 does nothing on the day it ships, until somebody writes the
-rules. The alternative is seeding a starter set — but the workbook contains no
-task definitions, so anything seeded would be invented. The recommendation was
-to ship it empty. **Undecided.**
-
-**3. What does "notify" mean?** There is no notification system. Surfacing
-staleness on screen, in the visual language of the blocking bar, is what is
-possible today. Anything more is a separate build. **Undecided.**
-
----
+**Modules 4 to 8** remain unbuilt and listed in the rail.
 
 ## 8. Running it
 
 ```bash
 npm run dev          # internal app on :3000, client surfaces on client.localhost:3000
-npm test             # everything, 401 checks
+npm test             # everything, 443 checks
 npm run test-db      # just the database suites
 npm run cf:preview   # the real Cloudflare runtime, locally
 ```

@@ -15,6 +15,7 @@ import { formatDayMonth } from "@/lib/time";
 import { NO_SUB_SEGMENT } from "@/lib/taxonomy";
 import { StatusSelect } from "@/components/form/StatusSelect";
 import { ContactsTab } from "./ContactsTab";
+import { TasksTab } from "./TasksTab";
 import {
   reassignResponses,
   saveResponseAssignee,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/data/onboarding-actions";
 import type { OnboardingField, ProgrammeDetail } from "@/lib/data/programmes";
 import type { ClientContact } from "@/lib/data/contacts";
+import type { Task } from "@/lib/tasks";
 
 const TABS = [
   "Onboarding",
@@ -106,11 +108,15 @@ export function ProgrammeDetailContent({
   detail,
   contacts,
   canEditContacts,
+  tasks,
+  anyTaskTemplates,
 }: {
   nowIso: string;
   detail: ProgrammeDetail;
   contacts: ClientContact[];
   canEditContacts: boolean;
+  tasks: Task[];
+  anyTaskTemplates: boolean;
 }) {
   const now = new Date(nowIso);
   const programme = detail;
@@ -580,7 +586,17 @@ export function ProgrammeDetailContent({
             />
           )}
 
-          {tab !== "Onboarding" && tab !== "Contacts" && (
+          {tab === "Tasks" && (
+            <TasksTab
+              programmeId={detail.id}
+              tasks={tasks}
+              team={teamMembers}
+              anyTemplates={anyTaskTemplates}
+              canEditTemplates={canEditContacts}
+            />
+          )}
+
+          {tab !== "Onboarding" && tab !== "Contacts" && tab !== "Tasks" && (
             <div className="mt-4 overflow-hidden rounded-base border border-line bg-surface">
               <EmptyState message={emptyMessageFor(tab)} />
             </div>
@@ -904,8 +920,6 @@ function GenerateGate({
 
 function emptyMessageFor(tab: Tab): string {
   switch (tab) {
-    case "Tasks":
-      return "No tasks yet. Tasks generate from approved onboarding answers, in module 3.";
     case "Audience":
       return "No audience built yet. Targeting lives in module 5.";
     case "Attendees":

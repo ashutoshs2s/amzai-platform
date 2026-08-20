@@ -532,6 +532,16 @@ Total weeks is the number of whole weeks between `start_date` and `end_date`. Cu
 
 **Stale tasks.** Tasks generate from onboarding answers. When an answer changes after generation, flag the tasks built from it and notify. Do not regenerate silently and do not lock the answer.
 
+Implemented in module 3 as follows. A task is created when an answer is **approved**, not submitted: submitted is the client's claim, approved is Amzai accepting it, and work follows acceptance. It is created by a database trigger rather than a step somebody runs, because unlike onboarding generation — which freezes hundreds of questions in one act and earns a preview — this is one answer at a time and every outcome is reversible.
+
+What work a question produces lives in `task_templates`, attached to a template field. Most questions carry none: one task per answer would give four hundred tasks on day one, most of them nothing to do. **Nothing is seeded.** A task template is a judgement about how Amzai delivers, so the first ones are written by hand at `/question-sets`, and both screens say so plainly rather than reading as broken.
+
+A task keeps a copy of the answer it was built from, which is what turns "the answer changed" into "changed from this, to that". When the answer moves, or stops being approved, its tasks are flagged — including completed ones, because work done against an answer that has since changed is exactly what somebody needs to know about. Cancelled tasks are left alone; somebody already decided.
+
+Three ways out, all explicit: **keep** clears the flag, **regenerate** supersedes (the old task is cancelled and a replacement created from the current answer, so both stay on the record), **cancel** takes a reason.
+
+"Notify" is surfacing, not email. There is no notification system in this product, and staleness is shown in the same visual language as blocking items. Reaching somebody who is not looking at the screen is a separate build and a separate decision.
+
 **Data freshness.** Dashboard figures are partly hand-entered. Every figure stores when it was last updated and whether it was automatic or manual. The interface surfaces staleness. See DESIGN.md.
 
 **The contact database is never exported to a client.** Programme-specific registration and attendee data is shareable with the client it belongs to. Nothing else is.
