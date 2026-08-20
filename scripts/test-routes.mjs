@@ -83,8 +83,17 @@ if (files.includes(verifyRoute)) {
   check("and secure in production",
     /secure:\s*process\.env\.NODE_ENV === "production"/.test(source));
 
+  /*
+    The property, not the API. This first asserted NextResponse.redirect() and
+    broke when the handler moved to a relative Location — which was the fix, not
+    a regression. What matters is that the response is a redirect carrying a
+    Location, however that is expressed.
+  */
   check("it redirects rather than rendering, so the token leaves the address bar",
-    /NextResponse\.redirect\(/.test(source));
+    /status:\s*30[1278]/.test(source) || /NextResponse\.redirect\(/.test(source));
+  check("and the redirect target is relative, so it cannot leave the client host",
+    /headers\.set\("Location", path\)/.test(source) ||
+      !/nextUrl\.origin/.test(source));
 
   check("the exchange is one database call, not several",
     (source.match(/\.rpc\(/g) ?? []).length === 1 &&
