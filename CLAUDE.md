@@ -52,8 +52,15 @@ They are not run against the Supabase project, because they write, delete and
 deliberately violate constraints. A read-only test of a write path proves
 nothing.
 
-What they do not cover: PostgREST. A policy is proven; an embed inside a
-`.select()` string is not, and that only shows up in the browser.
+What they do not cover: PostgREST, and the Next.js runtime. A policy is proven;
+an embed inside a `.select()` string is not, and neither is any rule Next
+enforces at request time. A page that set a cookie compiled, typechecked and
+linted cleanly, then failed the first time somebody followed a link.
+
+`npm run test-routes` checks route SHAPE statically — that the verify endpoint
+is a Route Handler and not a page, that the session cookie keeps its flags, that
+no client surface carries a password field. It cannot tell you a runtime rule is
+satisfied. Only loading the page does that.
 
 `supabase/tests/test_privilege_tiers.sql` is run by hand in the SQL editor
 against the real database, and also by `sql-suite.test.mjs` here, so a policy
