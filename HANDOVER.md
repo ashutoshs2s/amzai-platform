@@ -129,8 +129,11 @@ one thing that local run does not prove is Cloudflare's *edge* egress policy on
 port 587 from a deployed Worker.
 
 **The client onboarding page.** Built, with answers saving on blur through
-`client_answer_question`. Its migration is applied, so it is live-capable; it
-has never been loaded with a real session.
+`client_answer_question`. **Nothing blocks it any more**: `client_answers` is
+applied, so the function and the `client_onboarding_questions` view are live.
+What is missing is only that nobody has walked it — it has never been loaded
+with a real session. That walkthrough is in section 8 and is the single most
+valuable thing left undone.
 
 **Bulk reassign** works and is tested. **Status and due date** persist. The
 programme detail's remaining unwired pieces are noted in section 6.
@@ -172,33 +175,20 @@ a module hidden until it exists tells an operator nothing about what is coming.
 
 Ordered by how much they will cost if ignored.
 
-### One migration is pending
+### Migration state: everything is applied
 
-Confirmed with `npx supabase migration list`, not from memory — this file was
-wrong about it twice, and both times the error was in the same direction:
-claiming things were unapplied that were already live.
+As of the last commit, local and remote match at `20260812210000_task_generations`,
+confirmed with the CLI and by reading the remote schema — the join table exists,
+`onboarding_responses.tasks_generated` is gone, and `backfill_task_template`
+answers.
 
-| Migration | Remote |
-|---|---|
-| `20260812180000_client_answers` | applied |
-| `20260812190000_link_send_outcome` | applied |
-| `20260812200000_task_engine` | applied |
-| `20260812210000_task_generations` | **pending** |
-
-```bash
-npx supabase db push
-```
-
-**Check the state before trusting any sentence here about it:**
+**Do not trust this paragraph.** This file has been wrong about migration state
+twice, both times in the same direction: claiming things were unapplied that
+were already live. Check before acting on it:
 
 ```bash
 npx supabase migration list
 ```
-
-The pending one drops `onboarding_responses.tasks_generated`, which is
-irreversible. Its backfill is exercised against real rows by the
-`task-backfill` suite, and that suite has been confirmed to fail when the
-backfill is removed — without it, re-approving an answer duplicates live work.
 
 ### The tests cannot see PostgREST or the Next runtime
 
@@ -208,10 +198,36 @@ no test asserts a Next.js runtime rule: a page that set a cookie compiled,
 typechecked and linted cleanly, then failed the first time somebody followed a
 link.
 
+**And `npm test` never touches the remote database.** The suites build their
+own throwaway Postgres with pglite, because they write, delete and deliberately
+violate constraints; a read-only test of a write path proves nothing. A green
+`npm test` says the migrations and policies are right, not that your Supabase
+project is in any particular state. Those are separate questions and
+`supabase migration list` answers the second.
+
 `npm run test-routes` asserts route *shape* — that verify is a Route Handler and
 not a page, that the session cookie keeps its flags — so the same mistake cannot
 be made silently again. It does not prove the runtime accepts anything. Only
 loading the page does.
+
+### A migration that transforms existing data needs `stopBefore`
+
+Every suite used to build a database with all migrations applied and then insert
+rows. That means a migration which transforms **existing** data always ran
+against an empty table and proved nothing. The `task_generations` backfill —
+which accompanies an irreversible column drop — shipped through review having
+never processed a single row, and the two counts reported before applying were
+zero for the same reason.
+
+`freshDatabase({ stopBefore: "..." })` halts at a named migration, leaving the
+database as it was immediately before that migration ran. The test then builds
+the world as it actually stands, and `applyRemaining(db)` runs the rest.
+`task-backfill.test.mjs` uses it, and was confirmed real by mutation: with the
+backfill removed, re-approving an answer produces seven tasks where there were
+five — live work duplicated.
+
+**Use this for any future migration that rewrites or backfills existing rows.**
+Asserting over an empty table is the default outcome, and it looks like passing.
 
 ### Thirteen workbook questions were lost and recovered
 
@@ -279,11 +295,16 @@ deliberately not built. The same limitation applies to hand-set ownership.
 ## 8. Running it
 
 ```bash
-npm run dev          # internal app on :3000, client surfaces on client.localhost:3000
-npm test             # everything, 481 checks
-npm run test-db      # just the database suites
-npm run cf:preview   # the real Cloudflare runtime, locally
+npm run dev                  # internal app on :3000, client on client.localhost:3000
+npm test                     # everything, 481 checks — against pglite, never remote
+npm run test-db              # just the database suites
+npm run cf:preview           # the real Cloudflare runtime, locally
+npx supabase migration list  # what the REMOTE actually has
 ```
+
+Those last two lines answer different questions and are easy to conflate. A
+green `npm test` says the migrations and policies are correct. It says nothing
+about the state of your Supabase project, because it never connects to it.
 
 `.env.example` documents every variable and why it exists. Copy it to
 `.env.local`. For the client flow without a mail provider, set
@@ -301,5 +322,12 @@ terminal → answer a question. That crosses the create transaction, the resolve
 against real question sets, the role resolution step, the freeze, the domain
 split, the rate limiter, the token exchange and client attribution.
 
-It has never been done end to end by the author. It needs the two pending
-migrations first.
+**Nothing blocks it any more.** Every migration is applied, so each step of that
+walkthrough has its schema behind it. What is missing is somebody doing it.
+
+It has never been done end to end by the author, because it needs a staff
+sign-in. It is the single most valuable hour left in this project: it crosses
+more untested surface than anything else available, and the bugs found late here
+— a clipped column, a run-together label, a page that could not set a cookie, a
+redirect to the wrong host — were every one of them invisible to 481 passing
+checks and obvious the moment somebody looked.
