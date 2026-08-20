@@ -33,7 +33,7 @@ under `.localhost` to 127.0.0.1 with no hosts file and no configuration.
 ## 2. Built and verified
 
 Verified means a test suite asserts it, against real Postgres where the claim is
-about the database. `npm test` runs everything: **462 checks across thirteen
+about the database. `npm test` runs everything: **481 checks across fourteen
 suites**, all passing at the time of writing.
 
 | Suite | Checks | What it proves |
@@ -50,6 +50,7 @@ suites**, all passing at the time of writing.
 | `responses` | 29 | Status, due date, bulk reassign, and what the blocking bar derives from |
 | `client-link` | 59 | The magic-link flow end to end, including the plaintext-token property |
 | `tasks` | 66 | Approval creates work; the per-pair guard; a changed answer flags rather than rewrites |
+| `task-backfill` | 19 | The one-off backfill in `task_generations`, run against real rows |
 | `sql-suite` | 42 | Runs `test_privilege_tiers.sql`, the file you paste into the SQL editor |
 
 ### The parts worth knowing about
@@ -128,8 +129,8 @@ one thing that local run does not prove is Cloudflare's *edge* egress policy on
 port 587 from a deployed Worker.
 
 **The client onboarding page.** Built, with answers saving on blur through
-`client_answer_question`. Never loaded with a real session, because that needs
-the two pending migrations below.
+`client_answer_question`. Its migration is applied, so it is live-capable; it
+has never been loaded with a real session.
 
 **Bulk reassign** works and is tested. **Status and due date** persist. The
 programme detail's remaining unwired pieces are noted in section 6.
@@ -171,19 +172,33 @@ a module hidden until it exists tells an operator nothing about what is coming.
 
 Ordered by how much they will cost if ignored.
 
-### Three migrations are pending
+### One migration is pending
 
-`20260812180000_client_answers`, `20260812190000_link_send_outcome` and
-`20260812210000_task_generations` have not been applied. `20260812200000_task_engine`
-**has** been applied. **The client onboarding page will fail until the first two
-are, and the Tasks tab will misbehave until the third is.**
+Confirmed with `npx supabase migration list`, not from memory — this file was
+wrong about it twice, and both times the error was in the same direction:
+claiming things were unapplied that were already live.
+
+| Migration | Remote |
+|---|---|
+| `20260812180000_client_answers` | applied |
+| `20260812190000_link_send_outcome` | applied |
+| `20260812200000_task_engine` | applied |
+| `20260812210000_task_generations` | **pending** |
 
 ```bash
 npx supabase db push
 ```
 
-If you are unsure what has been applied, `supabase migration list` compares
-local and remote.
+**Check the state before trusting any sentence here about it:**
+
+```bash
+npx supabase migration list
+```
+
+The pending one drops `onboarding_responses.tasks_generated`, which is
+irreversible. Its backfill is exercised against real rows by the
+`task-backfill` suite, and that suite has been confirmed to fail when the
+backfill is removed — without it, re-approving an answer duplicates live work.
 
 ### The tests cannot see PostgREST or the Next runtime
 
@@ -265,7 +280,7 @@ deliberately not built. The same limitation applies to hand-set ownership.
 
 ```bash
 npm run dev          # internal app on :3000, client surfaces on client.localhost:3000
-npm test             # everything, 462 checks
+npm test             # everything, 481 checks
 npm run test-db      # just the database suites
 npm run cf:preview   # the real Cloudflare runtime, locally
 ```

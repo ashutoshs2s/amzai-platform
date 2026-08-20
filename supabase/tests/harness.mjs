@@ -61,8 +61,14 @@ function migrationFiles() {
  *
  * `twice` applies each migration a second time at its own point in the
  * sequence, which is the state a half-failed `supabase db push` leaves behind.
+ *
+ * `stopBefore` halts at a named migration, leaving the database in the state it
+ * was in immediately before that migration ran. That is the only way to test a
+ * migration that transforms EXISTING data: applying everything first and then
+ * inserting rows means the transformation ran against an empty table and proved
+ * nothing. Finish with applyRemaining().
  */
-export async function freshDatabase({ twice = false } = {}) {
+export async function freshDatabase({ twice = false, stopBefore = null } = {}) {
   const db = await PGlite.create();
   await db.exec(SUPABASE_SHIM);
 
@@ -85,9 +91,38 @@ export async function freshDatabase({ twice = false } = {}) {
   await db.exec(`insert into public.users (id, full_name, email, role)
                  values (gen_random_uuid(), 'Ash Prasad', 'ash@amzai.ai', 'admin')`);
 
-  for (const file of files.slice(tierAt)) await apply(file);
+  const stopAt = stopBefore
+    ? files.findIndex((f) => f.includes(stopBefore))
+    : files.length;
+
+  if (stopBefore && stopAt === -1) {
+    throw new Error(`No migration matching "${stopBefore}"`);
+  }
+
+  for (const file of files.slice(tierAt, stopAt)) await apply(file);
+
+  // Remembered so applyRemaining knows where to pick up.
+  db.__appliedTo = stopAt;
+  db.__applyOne = apply;
 
   return db;
+}
+
+/**
+ * Apply the migrations freshDatabase({ stopBefore }) held back.
+ *
+ * Returns the names applied, so a test can assert it ran the one it meant to
+ * rather than trusting that it did.
+ */
+export async function applyRemaining(db) {
+  const files = migrationFiles();
+  const from = db.__appliedTo ?? files.length;
+  const remaining = files.slice(from);
+
+  for (const file of remaining) await db.__applyOne(file);
+
+  db.__appliedTo = files.length;
+  return remaining;
 }
 
 export function migrationCount() {
